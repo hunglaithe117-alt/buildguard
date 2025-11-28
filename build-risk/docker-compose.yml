@@ -191,42 +191,6 @@ services:
     depends_on:
       - backend
 
-  # Monitoring Stack
-  # loki:
-  #   image: grafana/loki:3.0.0
-  #   container_name: build-risk-loki
-  #   ports:
-  #     - "3100:3100"
-  #   command: -config.file=/etc/loki/local-config.yaml
-  #   volumes:
-  #     - loki_data:/loki
-
-  # alloy:
-  #   image: grafana/alloy:latest
-  #   container_name: build-risk-alloy
-  #   volumes:
-  #     - ./monitoring/alloy-config.alloy:/etc/alloy/config.alloy:ro
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #     - alloy_data:/var/lib/alloy/data
-  #   command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
-  #   ports:
-  #     - "12345:12345"
-  #   depends_on:
-  #     - loki
-
-  # grafana:
-  #   image: grafana/grafana:10.2.3
-  #   container_name: build-risk-grafana
-  #   restart: unless-stopped
-  #   ports:
-  #     - "3001:3000"
-  #   environment:
-  #     - GF_SECURITY_ADMIN_USER=admin
-  #     - GF_SECURITY_ADMIN_PASSWORD=admin
-  #   volumes:
-  #     - grafana_data:/var/lib/grafana
-  #   depends_on:
-  #     - loki
 
 volumes:
   mongo_data:
@@ -234,7 +198,4 @@ volumes:
   sonarqube_data:
   sonarqube_extensions:
   sonarqube_logs:
-  shared_data:  # Shared volume for repo mirrors
-  loki_data:
-  grafana_data:
-  alloy_data:
+  shared_data:

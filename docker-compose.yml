@@ -1,0 +1,309 @@
+services:
+  # ==========================================
+  # SHARED INFRASTRUCTURE
+  # ==========================================
+
+  # MongoDB Database (Shared)
+  mongo:
+    image: mongo:6
+    container_name: buildguard-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: travis
+      MONGO_INITDB_ROOT_PASSWORD: travis
+
+  # RabbitMQ Message Broker (Shared)
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: buildguard-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: myuser
+      RABBITMQ_DEFAULT_PASS: mypass
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache (Shared)
+  redis:
+    image: redis:latest
+    container_name: buildguard-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  # SonarQube Server (Shared)
+  sonarqube:
+    image: sonarqube:latest
+    container_name: buildguard-sonarqube
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonar-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+      SONAR_WEB_JAVAADDITIONALOPTS: "-Dsonar.web.http.maxThreads=100"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    ports:
+      - "9000:9000"
+    depends_on:
+      - sonar-db
+    restart: unless-stopped
+
+  # PostgreSQL Database for SonarQube (Shared)
+  sonar-db:
+    image: postgres:15-alpine
+    container_name: buildguard-sonar-db
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # ==========================================
+  # BUILD RISK UI SERVICES
+  # ==========================================
+
+  risk-backend:
+    build:
+      context: ./build-risk-ui/backend
+      dockerfile: Dockerfile
+    container_name: build-risk-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB_NAME: buildguard
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "True"
+      SONAR_HOST_URL: http://sonarqube:9000
+      SONAR_TOKEN: ${SONAR_TOKEN:-}
+      SONAR_DEFAULT_PROJECT_KEY: build-risk-ui
+      SONAR_WEBHOOK_SECRET: ${SONAR_WEBHOOK_SECRET:-change-me}
+      SONAR_WEBHOOK_PUBLIC_URL: ${SONAR_WEBHOOK_PUBLIC_URL:-http://localhost:8000/api/sonar/webhook}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./build-risk-ui/backend:/app
+      - shared_data:/app/data
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  risk-frontend:
+    build:
+      context: ./build-risk-ui/frontend
+      dockerfile: Dockerfile
+    container_name: build-risk-frontend
+    command: npm run dev
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./build-risk-ui/frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - risk-backend
+
+  risk-celery-worker:
+    build:
+      context: ./build-risk-ui/backend
+      dockerfile: Dockerfile
+    container_name: build-risk-celery-worker
+    command: uv run celery -A app.celery_app worker -Q import_repo,collect_workflow_logs,data_processing,pipeline.default --loglevel=info -c 4
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB_NAME: buildguard
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+      REDIS_URL: redis://redis:6379/0
+      HOME: /tmp
+      SONAR_SCANNER_OPTS: "-Xmx2g -Xms512m"
+      SONAR_HOST_URL: http://sonarqube:9000
+      SONAR_TOKEN: ${SONAR_TOKEN:-}
+      SONAR_DEFAULT_PROJECT_KEY: build-risk-ui
+      SONAR_WEBHOOK_SECRET: ${SONAR_WEBHOOK_SECRET:-change-me}
+      REPO_MIRROR_ROOT: /app/data/repo-mirrors
+    volumes:
+      - ./build-risk-ui/backend:/app
+      - shared_data:/app/data
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      sonarqube:
+        condition: service_started
+
+  risk-celery-beat:
+    build:
+      context: ./build-risk-ui/backend
+      dockerfile: Dockerfile
+    container_name: build-risk-celery-beat
+    command: uv run celery -A app.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB_NAME: buildguard
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+      REDIS_URL: redis://redis:6379/0
+      HOME: /tmp
+    volumes:
+      - ./build-risk-ui/backend:/app
+      - shared_data:/app/data
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ==========================================
+  # BUILD COMMIT PIPELINE SERVICES
+  # ==========================================
+
+  pipeline-api:
+    build:
+      context: ./build-commit-pipeline/backend
+    container_name: build-commit-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      PIPELINE_CONFIG: /app/config/pipeline.yml
+      HOME: /tmp
+      # Update to use shared infra
+      MONGODB_URI: mongodb://mongo:27017
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+    volumes:
+      - ./build-commit-pipeline/backend/config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./build-commit-pipeline/backend/data:/app/data
+    depends_on:
+      - rabbitmq
+      - mongo
+    ports:
+      - "8001:8000" # Mapped to 8001 to avoid conflict
+
+  pipeline-worker-ingest:
+    build:
+      context: ./build-commit-pipeline/backend
+    container_name: build-commit-worker-ingest
+    command: celery -A app.celery_app.celery_app worker --loglevel=info -Q pipeline.ingest -n ingest.%h -c 1
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      PIPELINE_CONFIG: /app/config/pipeline.yml
+      HOME: /tmp
+      MONGODB_URI: mongodb://mongo:27017
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+    volumes:
+      - ./build-commit-pipeline/backend/config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./build-commit-pipeline/backend/data:/app/data
+    depends_on:
+      - rabbitmq
+      - mongo
+
+  pipeline-worker-scan:
+    build:
+      context: ./build-commit-pipeline/backend
+    container_name: build-commit-worker-scan
+    command: celery -A app.celery_app.celery_app worker --loglevel=info -Q pipeline.scan -n scan.%h -c 4
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      PIPELINE_CONFIG: /app/config/pipeline.yml
+      HOME: /tmp
+      SONAR_SCANNER_OPTS: "-Xmx2g -Xms512m"
+      MONGODB_URI: mongodb://mongo:27017
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+      SONAR_HOST_URL: http://sonarqube:9000 # Use shared sonarqube
+    volumes:
+      - ./build-commit-pipeline/backend/config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./build-commit-pipeline/backend/data:/app/data
+    depends_on:
+      - rabbitmq
+      - mongo
+
+  pipeline-beat:
+    build:
+      context: ./build-commit-pipeline/backend
+    container_name: build-commit-beat
+    command: celery -A app.celery_app.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      PIPELINE_CONFIG: /app/config/pipeline.yml
+      HOME: /tmp
+      MONGODB_URI: mongodb://mongo:27017
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+    volumes:
+      - ./build-commit-pipeline/backend/config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./build-commit-pipeline/backend/data:/app/data
+    depends_on:
+      - rabbitmq
+      - mongo
+
+  pipeline-frontend:
+    build:
+      context: ./build-commit-pipeline/frontend
+    container_name: build-commit-frontend
+    command: npm run start -- -H 0.0.0.0 -p 3000
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8001 # Point to remapped API port
+    depends_on:
+      - pipeline-api
+    ports:
+      - "3001:3000" # Mapped to 3001 to avoid conflict
+
+volumes:
+  mongo_data:
+  postgres_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  shared_data:
+  loki_data:
+  grafana_data:
+  alloy_data:

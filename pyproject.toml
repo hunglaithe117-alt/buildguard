@@ -1,0 +1,9 @@
+[project]
+name = "buildguard"
+version = "0.1.0"
+description = "BuildGuard"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["build-risk-ui/backend", "build-commit-pipeline/backend"]

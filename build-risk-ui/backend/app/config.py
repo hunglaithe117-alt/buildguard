@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "amqp://myuser:mypass@localhost:5672//"
     REDIS_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
-    CELERY_DEFAULT_QUEUE: str = "pipeline.default"
+    CELERY_DEFAULT_QUEUE: str = "risk.default"
     CELERY_TASK_SOFT_TIME_LIMIT: int = 600
     CELERY_TASK_TIME_LIMIT: int = 900
     CELERY_BROKER_HEARTBEAT: int = 30

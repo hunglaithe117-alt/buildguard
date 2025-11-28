@@ -4,18 +4,26 @@ version = "0.1.0"
 description = "FastAPI + Celery backend for the TravisTorrent SonarQube pipeline"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi==0.110.0",
-    "uvicorn[standard]==0.27.1",
-    "aiofiles==23.2.1",
-    "python-multipart==0.0.9",
     "pydantic==2.10.1",
-    "pyyaml==6.0.1",
-    "pymongo==4.6.1",
-    "celery==5.3.6",
-    "requests==2.31.0",
-    "tenacity==8.2.3",
+    "pydantic-settings==2.6.1",
+    "motor==3.6.0",
+    "fastapi==0.115.5",
+    "uvicorn==0.32.1",
+    "python-multipart==0.0.9",
+    "celery==5.4.0",
+    "redis==5.2.0",
+    "requests==2.32.3",
+    "httpx==0.27.2",
     "pandas==2.2.3",
-    "boto3==1.34.59"
+    "pyyaml==6.0.2",
+    "boto3==1.35.71",
+    "opentelemetry-distro",
+    "opentelemetry-exporter-zipkin",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-instrumentation-celery",
+    "opentelemetry-instrumentation-pymongo",
+    "opentelemetry-instrumentation-requests",
+    "opentelemetry-instrumentation-logging",
 ]
 
 [build-system]

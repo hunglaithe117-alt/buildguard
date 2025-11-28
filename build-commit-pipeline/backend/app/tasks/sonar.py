@@ -286,6 +286,17 @@ def export_metrics(
         job_id,
         project_id,
     )
+
+    # Notify external service if this was an external job
+    external_job_id = job.get("external_job_id")
+    if external_job_id:
+        logger.info(f"Notifying external service for job {external_job_id}")
+        celery_app.send_task(
+            "app.tasks.sonar.process_scan_results",
+            args=[external_job_id, metrics, component_key],
+            queue="risk.default",
+        )
+
     return metrics
 
 

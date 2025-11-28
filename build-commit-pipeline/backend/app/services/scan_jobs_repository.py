@@ -22,6 +22,7 @@ class ScanJobsRepository(MongoRepositoryBase):
         project_key: Optional[str] = None,
         max_retries: int = 5,
         status: str = "PENDING",
+        external_job_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         now = datetime.utcnow()
         payload = {
@@ -41,6 +42,7 @@ class ScanJobsRepository(MongoRepositoryBase):
             "log_path": None,
             "config_override": None,
             "config_source": None,
+            "external_job_id": external_job_id,
             "created_at": now,
             "updated_at": now,
             "last_started_at": None,

@@ -12,7 +12,7 @@ celery_app = Celery(
     "build_commit_pipeline",
     broker=settings.broker.url,
     backend=settings.broker.result_backend,
-    include=["app.tasks.ingestion", "app.tasks.sonar"],
+    include=["app.tasks.ingestion", "app.tasks.sonar", "app.tasks.submission"],
 )
 
 celery_app.conf.update(
@@ -28,6 +28,7 @@ celery_app.conf.update(
         "app.tasks.sonar.export_metrics": {"queue": "pipeline.exports"},
         "app.tasks.sonar.run_scan_job": {"queue": "pipeline.scan"},
         "app.tasks.ingestion.ingest_project": {"queue": "pipeline.ingest"},
+        "app.tasks.submission.submit_scan": {"queue": "pipeline.ingest"},
     },
 )
 

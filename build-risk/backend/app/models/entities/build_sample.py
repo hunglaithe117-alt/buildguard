@@ -72,4 +72,12 @@ class BuildSample(BaseEntity):
     git_all_built_commits: List[str] = []
     git_num_all_built_commits: int | None = None
     gh_by_core_team_member: bool | None = None
+    gh_by_core_team_member: bool | None = None
     gh_num_commits_on_files_touched: int | None = None
+
+    # User Feedback
+    feedback: dict | None = None
+
+    # Risk Analysis
+    risk_factors: List[str] = []
+

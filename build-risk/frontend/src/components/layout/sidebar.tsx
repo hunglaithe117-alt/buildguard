@@ -1,9 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { BadgeCheck, BarChart, Home } from "lucide-react";
+import { BadgeCheck, BarChart, Home, Key } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 const navigation = [
   {
     label: "Overview",
@@ -15,10 +16,16 @@ const navigation = [
     href: "/admin/repos",
     icon: BadgeCheck,
   },
+  {
+    label: "Tokens",
+    href: "/admin/tokens",
+    icon: Key,
+  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
 
   return (
     <div className="flex h-full flex-col border-r bg-white/70 backdrop-blur dark:bg-slate-950/90">
@@ -30,6 +37,10 @@ export function Sidebar() {
 
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
+          if (item.label === "Tokens" && user?.role !== "admin") {
+            return null;
+          }
+
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
 

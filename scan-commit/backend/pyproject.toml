@@ -24,6 +24,8 @@ dependencies = [
     "opentelemetry-instrumentation-pymongo",
     "opentelemetry-instrumentation-requests",
     "opentelemetry-instrumentation-logging",
+    "pybreaker==1.3.0",
+    "python-json-logger==2.0.7",
 ]
 
 [build-system]

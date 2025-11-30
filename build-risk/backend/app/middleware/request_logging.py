@@ -63,27 +63,31 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         except Exception:  # pragma: no cover - we still want to log then reraise
             duration_ms = int((time.monotonic() - start) * 1000)
             logger.exception(
-                "Unhandled exception during request: method=%s path=%s client=%s req_id=%s duration_ms=%d user=%s",
-                request.method,
-                request.url.path,
-                request.client.host if request.client else None,
-                request_id,
-                duration_ms,
-                user_sub,
+                "Unhandled exception during request",
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "client_ip": request.client.host if request.client else None,
+                    "request_id": request_id,
+                    "duration_ms": duration_ms,
+                    "user_sub": user_sub,
+                }
             )
             raise
 
         duration_ms = int((time.monotonic() - start) * 1000)
 
         logger.info(
-            "request method=%s path=%s status=%s duration_ms=%d client=%s req_id=%s user=%s",
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
-            request.client.host if request.client else None,
-            request_id,
-            user_sub,
+            "Request finished",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": duration_ms,
+                "client_ip": request.client.host if request.client else None,
+                "request_id": request_id,
+                "user_sub": user_sub,
+            }
         )
 
         # Return request-id to client so traces can be correlated externally

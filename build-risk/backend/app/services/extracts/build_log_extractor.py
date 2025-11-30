@@ -6,11 +6,13 @@ from app.models.entities.build_sample import BuildSample
 from app.models.entities.imported_repository import ImportedRepository
 from app.models.entities.workflow_run import WorkflowRunRaw
 from app.services.extracts.log_parser import TestLogParser
+from app.services.extracts.base import BaseExtractor
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-class BuildLogExtractor:
+class BuildLogExtractor(BaseExtractor):
     def __init__(self, log_dir: Path = Path("../repo-data/job_logs")):
         self.log_dir = log_dir
         self.parser = TestLogParser()
@@ -18,9 +20,12 @@ class BuildLogExtractor:
     def extract(
         self,
         build_sample: BuildSample,
-        workflow_run: WorkflowRunRaw,
-        repo: ImportedRepository,
+        workflow_run: Optional[WorkflowRunRaw] = None,
+        repo: Optional[ImportedRepository] = None,
     ) -> Dict[str, Any]:
+        if not workflow_run or not repo:
+            logger.warning("Missing workflow_run or repo for BuildLogExtractor")
+            return self._empty_result()
         repo_id = str(build_sample.repo_id)
         run_id = str(build_sample.workflow_run_id)
 

@@ -19,6 +19,21 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: travis
       MONGO_INITDB_ROOT_PASSWORD: travis
+      MONGO_REPLICA_SET_NAME: rs0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+
+  # MongoDB Init Service (Initialize Replica Set)
+  mongo-init:
+    image: mongo:6
+    container_name: buildguard-mongo-init
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./mongo-init.js:/mongo-init.js:ro
+    command: >
+      mongosh --host mongo:27017 -u travis -p travis --authenticationDatabase admin
+      --eval 'try { rs.status() } catch (err) { rs.initiate({_id: "rs0", members: [{_id: 0, host: "mongo:27017"}]}) }'
 
   # RabbitMQ Message Broker (Shared)
   rabbitmq:

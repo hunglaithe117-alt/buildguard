@@ -64,6 +64,15 @@ export interface BuildDetail extends Build {
   git_num_all_built_commits?: number;
   gh_by_core_team_member?: boolean;
   gh_num_commits_on_files_touched?: number;
+  risk_factors?: string[];
+}
+
+export interface CompareResponse {
+  base_build: BuildDetail;
+  head_build: BuildDetail;
+  metrics_diff: Record<string, number>;
+  files_changed: { status: string; path: string }[];
+  commits: { sha: string; author: string; message: string }[];
 }
 
 export interface BuildListResponse {
@@ -121,7 +130,10 @@ export interface RepoDetail extends RepositoryRecord {
   description?: string;
   html_url?: string;
   sonar_config?: string;
+
   metadata?: Record<string, any>;
+  risk_thresholds?: { high: number; medium: number };
+  shadow_mode?: boolean;
 }
 
 export enum ScanJobStatus {
@@ -219,6 +231,8 @@ export interface RepoUpdatePayload {
   source_languages?: string[];
   default_branch?: string;
   notes?: string;
+  risk_thresholds?: { high: number; medium: number };
+  shadow_mode?: boolean;
 }
 
 export interface DashboardSummaryResponse {
@@ -272,6 +286,7 @@ export interface AuthVerifyResponse {
     id: string;
     email: string;
     name?: string;
+    role?: "admin" | "user";
   };
   github?: {
     login?: string;

@@ -23,3 +23,13 @@ class MongoRepositoryBase:
         if "_id" in doc:
             doc["id"] = str(doc.pop("_id"))
         return doc
+
+    def transaction(self):
+        """
+        Return a client session context manager for transactions.
+        Usage:
+            with self.transaction() as session:
+                with session.start_transaction():
+                    ...
+        """
+        return self.client.start_session()

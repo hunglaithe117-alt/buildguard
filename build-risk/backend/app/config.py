@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     CELERY_TASK_TIME_LIMIT: int = 900
     CELERY_BROKER_HEARTBEAT: int = 30
 
+    SLACK_WEBHOOK_URL: Optional[str] = None
+
     # Repository mirrors / schedulers
     REPO_MIRROR_ROOT: str = "../repo-data/repo-mirrors"
     ARTIFACTS_ROOT: str = "../repo-data/artifacts"

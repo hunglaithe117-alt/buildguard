@@ -18,6 +18,9 @@ import { SonarConfigEditor } from "@/components/sonar/sonar-config-editor";
 import { ScanJobsTable } from "@/components/sonar/scan-jobs-table";
 import { FailedScansTable } from "@/components/sonar/failed-scans-table";
 import { ScanMetricsTable } from "@/components/sonar/scan-metrics-table";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function RepoDetailPage() {
     const params = useParams();
@@ -26,6 +29,7 @@ export default function RepoDetailPage() {
 
     const [repo, setRepo] = useState<RepoDetail | null>(null);
     const [loading, setLoading] = useState(true);
+    const { toast } = useToast();
 
     useEffect(() => {
         const loadRepo = async () => {
@@ -40,6 +44,29 @@ export default function RepoDetailPage() {
         };
         loadRepo();
     }, [repoId]);
+
+    const handleShadowModeChange = async (checked: boolean) => {
+        if (!repo) return;
+        const previous = repo.shadow_mode;
+        // Optimistic update
+        setRepo({ ...repo, shadow_mode: checked });
+
+        try {
+            await reposApi.update(repoId, { shadow_mode: checked });
+            toast({
+                title: "Settings updated",
+                description: `Shadow Mode is now ${checked ? "enabled" : "disabled"}.`,
+            });
+        } catch (error) {
+            // Revert
+            setRepo({ ...repo, shadow_mode: previous });
+            toast({
+                title: "Update failed",
+                description: "Failed to update Shadow Mode setting.",
+                variant: "destructive",
+            });
+        }
+    };
 
     if (loading) {
         return (
@@ -156,10 +183,20 @@ export default function RepoDetailPage() {
                                 Configure repository-specific settings.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <p className="text-muted-foreground">
-                                Settings panel can be added here.
-                            </p>
+                        <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between space-x-2">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="shadow-mode">Shadow Mode</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        When enabled, risk assessments run but do not block deployments (Gate API always allows) and do not send alerts.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="shadow-mode"
+                                    checked={repo?.shadow_mode || false}
+                                    onCheckedChange={handleShadowModeChange}
+                                />
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

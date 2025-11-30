@@ -6,6 +6,8 @@ from pymongo.database import Database
 from app.dtos.build import BuildDetail, BuildListResponse, BuildSummary
 from app.models.entities.build_sample import BuildSample
 from app.models.entities.workflow_run import WorkflowRunRaw
+from app.celery_app import celery_app
+from datetime import datetime, timezone
 
 
 class BuildService:
@@ -177,4 +179,37 @@ class BuildService:
         self.build_collection.update_one(
             {"_id": ObjectId(build_id)}, {"$set": {"sonar_scan_status": "queued"}}
         )
+        )
         return True
+
+    def trigger_rescan(self, build_id: str, user_id: str):
+        doc = self.build_collection.find_one({"_id": ObjectId(build_id)})
+        if not doc:
+            raise ValueError("Build not found")
+        
+        repo_id = str(doc["repo_id"])
+        run_id = doc["workflow_run_id"]
+        
+        # Trigger processing task
+        celery_app.send_task(
+            "app.tasks.processing.process_workflow_run", args=[repo_id, run_id]
+        )
+        return True
+
+    def submit_feedback(self, build_id: str, user_id: str, is_false_positive: bool, reason: str):
+        doc = self.build_collection.find_one({"_id": ObjectId(build_id)})
+        if not doc:
+            raise ValueError("Build not found")
+            
+        feedback = {
+            "user_id": user_id,
+            "is_false_positive": is_false_positive,
+            "reason": reason,
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        self.build_collection.update_one(
+            {"_id": ObjectId(build_id)},
+            {"$set": {"feedback": feedback}}
+        )
+        return feedback

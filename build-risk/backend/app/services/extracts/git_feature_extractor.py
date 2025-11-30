@@ -10,8 +10,10 @@ from pymongo.database import Database
 
 from app.models.entities.build_sample import BuildSample
 from app.models.entities.imported_repository import ImportedRepository
+from app.models.entities.workflow_run import WorkflowRunRaw
 from app.repositories.build_sample import BuildSampleRepository
 from app.repositories.workflow_run import WorkflowRunRepository
+from app.services.extracts.base import BaseExtractor
 from app.services.github.github_app import get_installation_token
 from app.utils.locking import repo_lock
 from app.services.extracts.diff_analyzer import (
@@ -28,15 +30,21 @@ REPOS_DIR = Path("../repo-data/repos")
 REPOS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-class GitFeatureExtractor:
+class GitFeatureExtractor(BaseExtractor):
     def __init__(self, db: Database):
         self.db = db
         self.build_sample_repo = BuildSampleRepository(db)
         self.workflow_run_repo = WorkflowRunRepository(db)
 
     def extract(
-        self, build_sample: BuildSample, repo: ImportedRepository
+        self,
+        build_sample: BuildSample,
+        workflow_run: Optional[WorkflowRunRaw] = None,
+        repo: Optional[ImportedRepository] = None,
     ) -> Dict[str, Any]:
+        if not repo:
+            logger.warning("Missing repo for GitFeatureExtractor")
+            return self._empty_result()
         commit_sha = build_sample.tr_original_commit
         if not commit_sha:
             logger.warning(f"No commit SHA for build {build_sample.id}")

@@ -7,15 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import api_router
 from app.core.config import settings
 
+from app.core.logging import setup_logging
+
 # Configure logging from settings. `settings.logging.level` defaults to "INFO".
 try:
     level_name = settings.logging.level
 except Exception:
     level_name = "INFO"
 
-# Resolve to a numeric level; fallback to INFO if unknown.
-numeric_level = getattr(logging, str(level_name).upper(), logging.INFO)
-logging.basicConfig(level=numeric_level)
+setup_logging(level_name)
 
 
 app = FastAPI(

@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from app.services.extracts.base import BaseExtractor
 
 from datetime import datetime, timezone
 
@@ -16,7 +17,7 @@ from pymongo.database import Database
 logger = logging.getLogger(__name__)
 
 
-class GitHubDiscussionExtractor:
+class GitHubDiscussionExtractor(BaseExtractor):
     def __init__(self, db: Database):
         self.db = db
         self.workflow_run_repo = WorkflowRunRepository(db)
@@ -24,9 +25,11 @@ class GitHubDiscussionExtractor:
     def extract(
         self,
         build_sample: BuildSample,
-        workflow_run: WorkflowRunRaw,
-        repo: ImportedRepository,
+        workflow_run: Optional[WorkflowRunRaw] = None,
+        repo: Optional[ImportedRepository] = None,
     ) -> Dict[str, Any]:
+        if not workflow_run or not repo:
+            return self._empty_result()
         commit_sha = build_sample.tr_original_commit
         if not commit_sha:
             return self._empty_result()

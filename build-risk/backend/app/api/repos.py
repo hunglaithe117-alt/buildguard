@@ -14,7 +14,7 @@ from app.dtos import (
     RepoUpdateRequest,
 )
 from app.dtos.build import BuildListResponse, BuildDetail
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, require_admin
 from app.services.build_service import BuildService
 from app.services.repository_service import RepositoryService
 
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/repos", tags=["Repositories"])
 )
 def sync_repositories(
     db: Database = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin),
     limit: int = Query(default=30, ge=1, le=100),
 ):
     """Sync available repositories from GitHub App Installations."""
@@ -44,7 +44,7 @@ def sync_repositories(
 def bulk_import_repositories(
     payloads: List[RepoImportRequest],
     db: Database = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin),
 ):
     """Register multiple repositories for ingestion."""
     user_id = str(current_user["_id"])
@@ -116,7 +116,7 @@ def update_repository_settings(
     repo_id: str,
     payload: RepoUpdateRequest,
     db: Database = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_admin),
 ):
     service = RepositoryService(db)
     return service.update_repository_settings(repo_id, payload, current_user)
@@ -171,6 +171,47 @@ def get_build_detail(
 
         raise HTTPException(status_code=404, detail="Build not found")
     return build
+
+
+@router.post("/{repo_id}/builds/{build_id}/rescan")
+def trigger_build_rescan(
+    repo_id: str,
+    build_id: str,
+    db: Database = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Trigger a rescan for a specific build."""
+    service = BuildService(db)
+    user_id = str(current_user["_id"])
+    try:
+        service.trigger_rescan(build_id, user_id)
+        return {"status": "queued"}
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/{repo_id}/builds/{build_id}/feedback")
+def submit_build_feedback(
+    repo_id: str,
+    build_id: str,
+    payload: dict = Body(..., embed=True),  # {"is_false_positive": bool, "reason": str}
+    db: Database = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Submit feedback for a build risk assessment."""
+    service = BuildService(db)
+    user_id = str(current_user["_id"])
+    
+    is_false_positive = payload.get("is_false_positive", False)
+    reason = payload.get("reason", "")
+    
+    try:
+        service.submit_feedback(build_id, user_id, is_false_positive, reason)
+        return {"status": "success"}
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # --- SonarQube Integration Endpoints ---

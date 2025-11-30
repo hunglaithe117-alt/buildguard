@@ -81,3 +81,7 @@ class ImportedRepository(BaseEntity):
 
     # Metadata
     metadata: Dict[str, Any] = {}
+
+    # Risk Governance
+    risk_thresholds: Dict[str, int] = {"high": 80, "medium": 50}
+    shadow_mode: bool = False

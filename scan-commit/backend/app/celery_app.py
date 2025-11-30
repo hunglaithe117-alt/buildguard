@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from celery import Celery
+from celery import Celery, signals
 from kombu import Queue
 
 from app.core.config import settings
+from app.core.logging import setup_logging
+
+@signals.setup_logging.connect
+def on_setup_logging(**kwargs):
+    setup_logging(settings.logging.level)
 
 
 celery_app = Celery(
@@ -32,10 +37,14 @@ celery_app.conf.update(
     },
 )
 
-celery_app.conf.task_queues = (
     Queue("pipeline.ingest"),
-    Queue("pipeline.scan", queue_arguments={"x-max-priority": 10}),
+    Queue("pipeline.scan", queue_arguments={
+        "x-max-priority": 10,
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "pipeline.scan.dlq"
+    }),
     Queue("pipeline.exports"),
+    Queue("pipeline.scan.dlq"),
 )
 
 

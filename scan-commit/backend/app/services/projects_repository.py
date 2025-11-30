@@ -39,11 +39,27 @@ class ProjectsRepository(MongoRepositoryBase):
             "created_at": now,
             "updated_at": now,
         }
+        }
         if sonar_config:
             payload["sonar_config"] = sonar_config
-        result = self.db[self.collections.projects_collection].insert_one(payload)
-        payload["id"] = str(result.inserted_id)
-        return payload
+
+        # Use project_key as unique identifier for upsert
+        query = {"project_key": project_key}
+        update = {
+            "$set": payload,
+            "$setOnInsert": {"created_at": now}
+        }
+        # Remove created_at from $set to avoid overwriting it on update
+        del payload["created_at"]
+
+        result = self.db[self.collections.projects_collection].find_one_and_update(
+            query,
+            update,
+            upsert=True,
+            return_document=ReturnDocument.AFTER
+        )
+        payload["id"] = str(result["_id"])
+        return self._serialize(result)
 
     def list_projects(self, limit: int = 50) -> List[Dict[str, Any]]:
         cursor = (

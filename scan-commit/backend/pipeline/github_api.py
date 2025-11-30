@@ -13,11 +13,12 @@ from app.core.config import settings
 LOG = logging.getLogger("pipeline.github")
 
 
-class AllTokensRateLimited(RuntimeError):
-    def __init__(self, retry_at: float) -> None:
-        self.retry_at = retry_at
-        human = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(retry_at))
-        super().__init__(f"All GitHub tokens are rate limited until {human} UTC")
+import hashlib
+import json
+import redis
+from app.services.github_token_service import GitHubTokenService
+
+LOG = logging.getLogger("pipeline.github")
 
 
 class GitHubAPIError(RuntimeError):
@@ -34,60 +35,27 @@ class GitHubRateLimitError(GitHubAPIError):
         self.retry_at = retry_at
 
 
-class GitHubTokenPool:
-    """Simple round-robin pool that rotates GitHub tokens and tracks cooldowns."""
-
-    def __init__(self, tokens: List[str]) -> None:
-        cleaned = [token.strip() for token in tokens if token and token.strip()]
-        if not cleaned:
-            raise RuntimeError(
-                "GitHub token pool is empty. Provide github.tokens in pipeline.yml"
-            )
-        self.tokens = cleaned
-        self._cooldowns: dict[str, float] = {token: 0.0 for token in cleaned}
-        self._cursor = 0
-        self._lock = threading.Lock()
-
-    @property
-    def size(self) -> int:
-        return len(self.tokens)
-
-    def acquire(self) -> str:
-        now = time.time()
-        with self._lock:
-            for _ in range(len(self.tokens)):
-                token = self.tokens[self._cursor]
-                self._cursor = (self._cursor + 1) % len(self.tokens)
-                if self._cooldowns.get(token, 0.0) <= now:
-                    return token
-        raise AllTokensRateLimited(self.next_available_at())
-
-    def mark_rate_limited(self, token: str, reset_epoch: Optional[int]) -> None:
-        if token not in self._cooldowns:
-            return
-        cooldown = float(reset_epoch) if reset_epoch else time.time() + 60.0
-        with self._lock:
-            self._cooldowns[token] = max(cooldown, time.time() + 1.0)
-        reset_text = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(cooldown))
-        LOG.warning("GitHub token exhausted, cooling down until %s", reset_text)
-
-    def next_available_at(self) -> float:
-        if not self._cooldowns:
-            return time.time()
-        return min(self._cooldowns.values())
-
-
 class GitHubAPI:
-    """Thin wrapper around the GitHub REST API with token rotation."""
+    """Wrapper around GitHub API with Mongo-backed Token Manager and Redis Caching."""
 
-    def __init__(self, base_url: str, tokens: List[str], *, timeout: int = 30) -> None:
+    def __init__(self, base_url: str, *, timeout: int = 30) -> None:
         self.base_url = base_url.rstrip("/")
-        self.token_pool = GitHubTokenPool(tokens)
+        self.token_service = GitHubTokenService()
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "build-commit-pipeline/sonar",
         })
         self.timeout = timeout
+        
+        # Initialize Redis for Caching
+        # We use the same Redis URL as Celery/App
+        self.redis = redis.from_url(settings.redis.url)
+        self.cache_ttl = 3600 * 24 * 7  # 7 days cache
+
+    def _get_cache_key(self, url: str, params: Optional[dict]) -> str:
+        key_str = f"{url}:{json.dumps(params, sort_keys=True)}"
+        hashed = hashlib.md5(key_str.encode()).hexdigest()
+        return f"github:cache:{hashed}"
 
     def _request(
         self,
@@ -99,22 +67,45 @@ class GitHubAPI:
     ) -> requests.Response:
         url = f"{self.base_url}{path}"
         errors: list[str] = []
+        
+        # Check Cache (only for GET)
+        cache_key = None
+        etag = None
+        if method == "GET":
+            cache_key = self._get_cache_key(url, params)
+            cached_raw = self.redis.get(cache_key)
+            if cached_raw:
+                try:
+                    cached_data = json.loads(cached_raw)
+                    etag = cached_data.get("etag")
+                except Exception:
+                    pass
+
         attempts = 0
-        max_attempts = max(self.token_pool.size * 4, self.token_pool.size)
+        # Try a reasonable number of times (e.g., 5) to get a working token
+        max_attempts = 5
+        
         while attempts < max_attempts:
             attempts += 1
             try:
-                token = self.token_pool.acquire()
-            except AllTokensRateLimited as exc:
+                token_obj = self.token_service.get_best_token()
+                token = token_obj.key
+            except RuntimeError as exc:
+                # All tokens exhausted/disabled
                 raise GitHubRateLimitError(
-                    retry_at=exc.retry_at,
+                    retry_at=time.time() + 60,
                     message=str(exc),
                 ) from exc
+
             headers = {
                 "Accept": accept,
                 "Authorization": f"token {token}",
             }
+            if etag:
+                headers["If-None-Match"] = etag
+
             try:
+                LOG.info(f"🚀 Using token {token[:4]}... for {method} {url}")
                 resp = self.session.request(
                     method,
                     url,
@@ -122,19 +113,65 @@ class GitHubAPI:
                     headers=headers,
                     timeout=self.timeout,
                 )
+                
+                # Update Token Status
+                self.token_service.update_token_status(token, resp.headers)
+
+                # Handle 304 Not Modified
+                if resp.status_code == 304 and cache_key:
+                    LOG.info(f"⚡ 304 Not Modified for {url}. Using Redis cache.")
+                    cached_raw = self.redis.get(cache_key)
+                    if cached_raw:
+                        cached_data = json.loads(cached_raw)
+                        # Reconstruct response
+                        resp.status_code = 200
+                        resp._content = json.dumps(cached_data["data"]).encode("utf-8")
+                        return resp
+
+                # Handle 401 Invalid Token
+                if resp.status_code == 401:
+                    LOG.error(f"🚫 Token {token[:4]}... is INVALID (401). Removing.")
+                    self.token_service.remove_token(token)
+                    continue
+
+                # Handle 403/429 Rate Limits
+                if resp.status_code == 429 or (
+                    resp.status_code == 403 and resp.headers.get("X-RateLimit-Remaining") == "0"
+                ):
+                    LOG.warning(f"❌ Rate Limit Exceeded ({resp.status_code}). Token {token[:4]}... exhausted.")
+                    self.token_service.handle_rate_limit(token)
+                    continue
+
+                # Handle Spammy/Abuse
+                if 400 < resp.status_code < 500 and "spammy" in resp.text.lower():
+                     LOG.warning(f"🚫 Token {token[:4]}... flagged as spammy.")
+                     self.token_service.disable_token(token)
+                     continue
+
+                # Cache Successful GET Responses
+                if resp.status_code == 200 and cache_key:
+                    new_etag = resp.headers.get("ETag")
+                    if new_etag:
+                        try:
+                            cache_data = {
+                                "etag": new_etag,
+                                "data": resp.json()
+                            }
+                            self.redis.setex(cache_key, self.cache_ttl, json.dumps(cache_data))
+                        except Exception as e:
+                            LOG.warning(f"Failed to cache response: {e}")
+
+                if resp.status_code >= 400:
+                    snippet = (resp.text or "")[:200]
+                    message = f"GitHub API {resp.status_code} for {path}: {snippet}"
+                    raise GitHubAPIError(resp.status_code, message)
+                
+                return resp
+
             except requests.RequestException as exc:
                 errors.append(str(exc))
                 continue
-            if resp.status_code == 403 and resp.headers.get("X-RateLimit-Remaining") == "0":
-                reset_header = resp.headers.get("X-RateLimit-Reset")
-                reset_epoch = int(reset_header) if reset_header and reset_header.isdigit() else None
-                self.token_pool.mark_rate_limited(token, reset_epoch)
-                continue
-            if resp.status_code >= 400:
-                snippet = (resp.text or "")[:200]
-                message = f"GitHub API {resp.status_code} for {path}: {snippet}"
-                raise GitHubAPIError(resp.status_code, message)
-            return resp
+        
         raise GitHubAPIError(503, "All GitHub API attempts failed: " + "; ".join(errors))
 
     @staticmethod
@@ -164,20 +201,15 @@ _CLIENT: Optional[GitHubAPI] = None
 
 
 def get_github_client() -> Optional[GitHubAPI]:
-    """Return a cached GitHub client instance, if tokens are configured."""
-
+    """Return a cached GitHub client instance."""
     global _CLIENT
     if _CLIENT is not None:
         return _CLIENT
-    tokens = settings.github.tokens if hasattr(settings, "github") else []
-    cleaned = [token for token in tokens if token]
-    if not cleaned:
-        LOG.warning(
-            "GitHub token pool is empty; missing-fork commits cannot be replayed until tokens are configured."
-        )
-        return None
+    
+    # We no longer rely on settings.github.tokens for initialization
+    # The service will pull from MongoDB
+    
     _CLIENT = GitHubAPI(
         base_url=getattr(settings.github, "api_url", "https://api.github.com"),
-        tokens=cleaned,
     )
     return _CLIENT

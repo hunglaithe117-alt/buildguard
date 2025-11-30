@@ -255,30 +255,32 @@ def export_metrics(
     if not metrics:
         raise RuntimeError(f"No metrics available for {component_key}")
 
-    repository.upsert_scan_result(
-        project_id=project_id,
-        job_id=job_id,
-        sonar_project_key=component_key,
-        metrics=metrics,
-    )
+    with repository.transaction() as session:
+        with session.start_transaction():
+            repository.upsert_scan_result(
+                project_id=project_id,
+                job_id=job_id,
+                sonar_project_key=component_key,
+                metrics=metrics,
+            )
 
-    repository.update_scan_job(
-        job_id,
-        status=ScanJobStatus.success.value,
-        last_error=None,
-        last_finished_at=datetime.utcnow(),
-    )
-    failed_record = repository.get_failed_commit_by_job(job_id)
-    update_kwargs: Dict[str, Any] = {"processed_delta": 1}
-    if failed_record and failed_record.get("counted", True):
-        repository.update_failed_commit(
-            failed_record["id"],
-            status="resolved",
-            resolved_at=datetime.utcnow(),
-            counted=False,
-        )
-        update_kwargs["failed_delta"] = -1
-    repository.update_project(project_id, **update_kwargs)
+            repository.update_scan_job(
+                job_id,
+                status=ScanJobStatus.success.value,
+                last_error=None,
+                last_finished_at=datetime.utcnow(),
+            )
+            failed_record = repository.get_failed_commit_by_job(job_id)
+            update_kwargs: Dict[str, Any] = {"processed_delta": 1}
+            if failed_record and failed_record.get("counted", True):
+                repository.update_failed_commit(
+                    failed_record["id"],
+                    status="resolved",
+                    resolved_at=datetime.utcnow(),
+                    counted=False,
+                )
+                update_kwargs["failed_delta"] = -1
+            repository.update_project(project_id, **update_kwargs)
     _check_project_completion(project_id)
     logger.info(
         "Stored metrics for component %s (job=%s, project=%s)",

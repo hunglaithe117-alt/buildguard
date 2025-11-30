@@ -16,8 +16,14 @@ from app.api import (
     websockets,
     logs,
     sonar,
+    tokens,
 )
+from app.api.endpoints import compare, gate
 from app.middleware.request_logging import RequestLoggingMiddleware
+
+from app.core.logging import setup_logging
+
+setup_logging("INFO")
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +56,9 @@ app.include_router(webhook.router, prefix="/api", tags=["Webhooks"])
 app.include_router(websockets.router, prefix="/api", tags=["WebSockets"])
 app.include_router(logs.router, prefix="/api", tags=["Logs"])
 app.include_router(sonar.router, prefix="/api/sonar", tags=["SonarQube"])
+app.include_router(tokens.router, prefix="/api/tokens", tags=["Tokens"])
+app.include_router(compare.router, prefix="/api", tags=["Compare"])
+app.include_router(gate.router, prefix="/api/gate", tags=["Gate"])
 
 
 @app.get("/")

@@ -40,6 +40,8 @@ class RepoResponse(BaseModel):
     total_builds_imported: int = 0
     last_sync_error: Optional[str] = None
     notes: Optional[str] = None
+    risk_thresholds: Optional[Dict[str, int]] = None
+    shadow_mode: bool = False
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -65,6 +67,7 @@ class RepoUpdateRequest(BaseModel):
     source_languages: Optional[List[str]] = None
     default_branch: Optional[str] = None
     notes: Optional[str] = None
+    risk_thresholds: Optional[Dict[str, int]] = None
 
 
 class RepoSuggestion(BaseModel):

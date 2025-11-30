@@ -48,5 +48,5 @@ def setup_logging(level: str = "INFO") -> None:
     root_logger.addHandler(handler)
     
     # Silence noisy libraries
-    logging.getLogger("uvicorn.access").disabled = True
+    logging.getLogger("uvicorn.access").disabled = True  # We might want to keep this or format it too
     logging.getLogger("urllib3").setLevel("WARNING")

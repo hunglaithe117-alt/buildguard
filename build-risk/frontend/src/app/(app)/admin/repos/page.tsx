@@ -39,6 +39,7 @@ import type {
 } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { useWebSocket } from "@/contexts/websocket-context";
+import { useAuth } from "@/contexts/auth-context";
 import { ImportRepoModal } from "./_components/ImportRepoModal";
 
 const Portal = ({ children }: { children: React.ReactNode }) => {
@@ -90,6 +91,7 @@ export default function AdminReposPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const { subscribe } = useWebSocket();
+  const { user } = useAuth();
 
   const loadRepositories = useCallback(
     async (pageNumber = 1, withSpinner = false) => {
@@ -154,6 +156,13 @@ export default function AdminReposPage() {
     try {
       const detail = await reposApi.get(repoId);
       setPanelRepo(detail);
+      setPanelForm({
+        test_frameworks: detail.test_frameworks,
+        source_languages: detail.source_languages,
+        default_branch: detail.default_branch,
+        risk_thresholds: detail.risk_thresholds,
+      });
+      setPanelNotes(detail.notes || "");
     } catch (err) {
       console.error(err);
       setFeedback("Unable to load repository details.");
@@ -252,9 +261,11 @@ export default function AdminReposPage() {
                 className="h-9"
               />
             </div>
-            <Button onClick={() => setModalOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" /> Add GitHub Repository
-            </Button>
+            {user?.role === "admin" && (
+              <Button onClick={() => setModalOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" /> Add GitHub Repository
+              </Button>
+            )}
           </div>
         </CardHeader>
       </Card>
@@ -331,17 +342,18 @@ export default function AdminReposPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openPanel(repo.id);
-                            }}
-                          >
-                            Settings
-                          </Button>
+                          {user?.role === "admin" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openPanel(repo.id);
+                              }}
+                            >
+                              Settings
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -488,6 +500,52 @@ export default function AdminReposPage() {
                           value={panelNotes}
                           onChange={(e) => setPanelNotes(e.target.value)}
                         />
+                      </div>
+
+                      <div className="space-y-4 border-t pt-4">
+                        <h4 className="font-medium">Risk Governance</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                              High Risk Threshold
+                            </label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={panelForm.risk_thresholds?.high ?? 80}
+                              onChange={(e) =>
+                                setPanelForm((prev) => ({
+                                  ...prev,
+                                  risk_thresholds: {
+                                    high: parseInt(e.target.value) || 0,
+                                    medium: prev.risk_thresholds?.medium ?? 50,
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                              Medium Risk Threshold
+                            </label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={panelForm.risk_thresholds?.medium ?? 50}
+                              onChange={(e) =>
+                                setPanelForm((prev) => ({
+                                  ...prev,
+                                  risk_thresholds: {
+                                    high: prev.risk_thresholds?.high ?? 80,
+                                    medium: parseInt(e.target.value) || 0,
+                                  },
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="pt-4">

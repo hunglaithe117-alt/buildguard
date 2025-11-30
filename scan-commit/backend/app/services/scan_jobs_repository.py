@@ -48,9 +48,29 @@ class ScanJobsRepository(MongoRepositoryBase):
             "last_started_at": None,
             "last_finished_at": None,
         }
-        result = self.db[self.collections.scan_jobs_collection].insert_one(payload)
-        payload["id"] = str(result.inserted_id)
-        return payload
+        }
+        
+        # Determine unique query for idempotency
+        if external_job_id:
+            query = {"external_job_id": external_job_id}
+        else:
+            # Fallback to project_id + commit_sha if no external ID
+            query = {"project_id": project_id, "commit_sha": commit_sha}
+
+        update = {
+            "$set": payload,
+            "$setOnInsert": {"created_at": now}
+        }
+        del payload["created_at"]
+
+        result = self.db[self.collections.scan_jobs_collection].find_one_and_update(
+            query,
+            update,
+            upsert=True,
+            return_document=ReturnDocument.AFTER
+        )
+        payload["id"] = str(result["_id"])
+        return self._serialize(result)
 
     def get_scan_job(self, job_id: str) -> Optional[Dict[str, Any]]:
         doc = self.db[self.collections.scan_jobs_collection].find_one(

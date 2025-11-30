@@ -4,7 +4,8 @@ import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
+from app.services.extracts.base import BaseExtractor
 
 from app.models.entities.build_sample import BuildSample
 from app.models.entities.imported_repository import ImportedRepository
@@ -26,16 +27,18 @@ logger = logging.getLogger(__name__)
 REPOS_DIR = Path("../repo-data/repos")
 
 
-class RepoSnapshotExtractor:
+class RepoSnapshotExtractor(BaseExtractor):
     def __init__(self, db: Database):
         self.db = db
 
     def extract(
         self,
         build_sample: BuildSample,
-        workflow_run: WorkflowRunRaw,
-        repo: ImportedRepository,
+        workflow_run: Optional[WorkflowRunRaw] = None,
+        repo: Optional[ImportedRepository] = None,
     ) -> Dict[str, Any]:
+        if not workflow_run or not repo:
+            return self._empty_result()
         commit_sha = build_sample.tr_original_commit
         if not commit_sha:
             return self._empty_result()

@@ -300,6 +300,13 @@ class SonarCommitRunner:
             )
             return False
 
+import pybreaker
+
+# Circuit breaker for SonarQube scanning
+# Open after 5 failures, wait 60 seconds before trying again
+scan_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60)
+
+    @scan_breaker
     def scan_commit(
         self,
         *,

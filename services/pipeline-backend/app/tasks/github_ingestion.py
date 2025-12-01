@@ -37,12 +37,12 @@ def import_repo(
     ci_provider: str = "github_actions",
 ) -> Dict[str, Any]:
     import json
-    from app.config import settings
+    from app.core.config import settings
     import redis
 
     imported_repo_repo = ImportedRepositoryRepository(self.db)
     workflow_run_repo = WorkflowRunRepository(self.db)
-    redis_client = redis.from_url(settings.REDIS_URL)
+    redis_client = redis.from_url(settings.redis.url)
 
     def publish_status(repo_id: str, status: str, message: str = ""):
         try:

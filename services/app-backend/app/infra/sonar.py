@@ -30,7 +30,9 @@ class SonarScanProducer:
         repo_url: str,
         commit_sha: str,
         project_key: str | None = None,
+        project_key: str | None = None,
         repo_slug: str | None = None,
+        external_job_id: str | None = None,
     ) -> str:
         """
         Trigger a scan in the build-commit-pipeline service.
@@ -45,6 +47,7 @@ class SonarScanProducer:
                 "commit_sha": commit_sha,
                 "project_key": project_key,
                 "repo_slug": repo_slug,
+                "external_job_id": external_job_id,
             },
             queue=self.queue,
         )

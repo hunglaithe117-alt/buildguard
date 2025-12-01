@@ -1,23 +1,23 @@
 """Entity re-exports during domain migration."""
 
-from app.models.entities.available_repository import AvailableRepository
-from app.models.entities.build_sample import BuildSample
-from app.models.entities.failed_scan import FailedScan
-from app.models.entities.github_installation import GithubInstallation
-from app.models.entities.imported_repository import ImportedRepository
-from app.models.entities.oauth_identity import OAuthIdentity
-from app.models.entities.scan_job import ScanJob
-from app.models.entities.scan_result import ScanResult
-from app.models.entities.user import User
-from app.models.entities.workflow_run import WorkflowRunRaw
-from app.models.entities.imported_repository import (
+from buildguard_common.models.available_repository import AvailableRepository
+from buildguard_common.models.build_sample import BuildSample
+from buildguard_common.models.failed_scan import FailedScan
+from buildguard_common.models.github_installation import GithubInstallation
+from buildguard_common.models.imported_repository import ImportedRepository
+from buildguard_common.models.oauth_identity import OAuthIdentity
+from buildguard_common.models.scan_job import ScanJob
+from buildguard_common.models.scan_result import ScanResult
+from buildguard_common.models.user import User
+from buildguard_common.models.workflow_run import WorkflowRunRaw
+from buildguard_common.models.imported_repository import (
     Provider,
     TestFramework,
     SourceLanguage,
     CIProvider,
     ImportStatus,
 )
-from app.models.entities.base import PyObjectIdStr, PyObjectId
+from buildguard_common.models.base import PyObjectIdStr, PyObjectId
 
 __all__ = [
     "AvailableRepository",

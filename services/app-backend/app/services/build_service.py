@@ -165,50 +165,46 @@ class BuildService:
         return items
 
     def trigger_sonar_scan_direct(self, build_id: str):
-        from app.tasks.sonar import run_sonar_scan
+        from app.services.sonar_service import SonarService
 
         # Verify build exists
         if not self.build_collection.find_one({"_id": ObjectId(build_id)}):
             raise ValueError("Build not found")
 
-        # Trigger Celery task
-        run_sonar_scan.delay(build_id)
-
-        # Update status
-        self.build_collection.update_one(
-            {"_id": ObjectId(build_id)}, {"$set": {"sonar_scan_status": "queued"}}
-        )
-        )
+        # Trigger Scan via SonarService
+        service = SonarService(self.db)
+        service.trigger_scan(build_id)
         return True
 
     def trigger_rescan(self, build_id: str, user_id: str):
         doc = self.build_collection.find_one({"_id": ObjectId(build_id)})
         if not doc:
             raise ValueError("Build not found")
-        
+
         repo_id = str(doc["repo_id"])
         run_id = doc["workflow_run_id"]
-        
+
         # Trigger processing task
         celery_app.send_task(
             "app.tasks.processing.process_workflow_run", args=[repo_id, run_id]
         )
         return True
 
-    def submit_feedback(self, build_id: str, user_id: str, is_false_positive: bool, reason: str):
+    def submit_feedback(
+        self, build_id: str, user_id: str, is_false_positive: bool, reason: str
+    ):
         doc = self.build_collection.find_one({"_id": ObjectId(build_id)})
         if not doc:
             raise ValueError("Build not found")
-            
+
         feedback = {
             "user_id": user_id,
             "is_false_positive": is_false_positive,
             "reason": reason,
-            "created_at": datetime.now(timezone.utc)
+            "created_at": datetime.now(timezone.utc),
         }
-        
+
         self.build_collection.update_one(
-            {"_id": ObjectId(build_id)},
-            {"$set": {"feedback": feedback}}
+            {"_id": ObjectId(build_id)}, {"$set": {"feedback": feedback}}
         )
         return feedback

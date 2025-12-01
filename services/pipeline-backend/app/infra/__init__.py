@@ -1,19 +1,25 @@
-"""Infra layer shims for the pipeline backend."""
+"""Infrastructure adapters and external integrations."""
 
-from app.infra.repositories import (
-    Repository,
-    repository,
-    ProjectsRepository,
-    ScanJobsRepository,
-    ScanResultsRepository,
-    FailedCommitsRepository,
+from app.infra.github import (
+    get_user_github_client,
+    get_app_github_client,
+    get_public_github_client,
+    GitHubClient,
+    GitHubTokenPool,
+)
+from app.infra.github_app import (
+    github_app_configured,
+    get_installation_token,
+    clear_installation_token,
 )
 
 __all__ = [
-    "Repository",
-    "repository",
-    "ProjectsRepository",
-    "ScanJobsRepository",
-    "ScanResultsRepository",
-    "FailedCommitsRepository",
+    "get_user_github_client",
+    "get_app_github_client",
+    "get_public_github_client",
+    "GitHubClient",
+    "GitHubTokenPool",
+    "github_app_configured",
+    "get_installation_token",
+    "clear_installation_token",
 ]

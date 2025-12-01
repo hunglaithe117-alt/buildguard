@@ -18,7 +18,7 @@ class ProjectsRepository(MongoRepositoryBase):
     def create_project(
         self,
         *,
-        project_name: str,
+        full_name: str,
         project_key: str,
         total_builds: int | str,
         total_commits: int | str,
@@ -28,13 +28,13 @@ class ProjectsRepository(MongoRepositoryBase):
     ) -> Dict[str, Any]:
         now = datetime.utcnow()
         payload = {
-            "project_name": project_name,
+            "full_name": full_name,
             "project_key": project_key,
             "total_builds": int(total_builds or 0),
             "total_commits": int(total_commits or 0),
             "processed_commits": 0,
             "failed_commits": 0,
-            "status": ProjectStatus.pending.value,
+            "import_status": ProjectStatus.QUEUED.value,
             "source_filename": source_filename,
             "source_path": source_path,
             "created_at": now,
@@ -75,7 +75,7 @@ class ProjectsRepository(MongoRepositoryBase):
         skip = (page - 1) * page_size
         collection = self.db[self.collections.projects_collection]
         query = filters or {}
-        allowed = {"created_at", "project_name", "status"}
+        allowed = {"created_at", "full_name", "import_status"}
         sort_field = sort_by if sort_by in allowed else "created_at"
         sort_direction = -1 if sort_dir.lower() == "desc" else 1
 
@@ -105,7 +105,7 @@ class ProjectsRepository(MongoRepositoryBase):
         self,
         project_id: str,
         *,
-        status: Optional[str] = None,
+        import_status: Optional[str] = None,
         sonar_config: Any = _UNSET,
         processed_commits: Optional[int] = None,
         failed_commits: Optional[int] = None,
@@ -115,8 +115,8 @@ class ProjectsRepository(MongoRepositoryBase):
         total_commits: Any = _UNSET,
     ) -> Optional[Dict[str, Any]]:
         updates: Dict[str, Any] = {"updated_at": datetime.utcnow()}
-        if status:
-            updates["status"] = status
+        if import_status:
+            updates["import_status"] = import_status
         if processed_commits is not None:
             updates["processed_commits"] = processed_commits
         if failed_commits is not None:

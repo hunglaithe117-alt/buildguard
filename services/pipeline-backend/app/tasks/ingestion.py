@@ -32,7 +32,7 @@ def ingest_project(self, project_id: str) -> dict:
 
     repository.update_project(
         project_id,
-        status=ProjectStatus.processing.value,
+        import_status=ProjectStatus.IMPORTING.value,
         total_builds=summary.get("total_builds", 0),
         total_commits=summary.get("total_commits", 0),
     )
@@ -53,7 +53,7 @@ def ingest_project(self, project_id: str) -> dict:
 
     total_commits = int(len(df_unique))
     if total_commits == 0:
-        repository.update_project(project_id, status=ProjectStatus.finished.value)
+        repository.update_project(project_id, import_status=ProjectStatus.IMPORTED.value)
         return {"project_id": project_id, "queued": 0}
 
     queued = 0

@@ -289,14 +289,17 @@ def export_metrics(
         project_id,
     )
 
-    # Notify external service if this was an external job
+    # Update BuildSample if this was an external job (build_id passed as external_job_id)
     external_job_id = job.get("external_job_id")
     if external_job_id:
-        logger.info(f"Notifying external service for job {external_job_id}")
-        celery_app.send_task(
-            "app.tasks.sonar.process_scan_results",
-            args=[external_job_id, metrics, component_key],
-            queue="risk.default",
+        logger.info(f"Updating BuildSample for build {external_job_id}")
+        repository.build_samples.update_build_sample(
+            external_job_id,
+            {
+                "sonar_metrics": metrics,
+                "sonar_project_key": component_key,
+                "sonar_scan_status": "completed",
+            },
         )
 
     return metrics

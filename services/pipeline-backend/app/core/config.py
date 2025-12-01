@@ -74,10 +74,11 @@ class SonarSettings(BaseModel):
 
 
 class StorageCollections(BaseModel):
-    projects_collection: str = Field(default="projects")
+    projects_collection: str = Field(default="imported_repositories")
     scan_jobs_collection: str = Field(default="scan_jobs")
     scan_results_collection: str = Field(default="scan_results")
     failed_commits_collection: str = Field(default="failed_commits")
+    build_samples_collection: str = Field(default="build_samples")
 
 
 class WebSettings(BaseModel):
@@ -108,6 +109,18 @@ class GitHubSettings(BaseModel):
     api_url: str = Field(default="https://api.github.com")
     tokens: List[str] = Field(default_factory=list)
     max_parent_hops: int = Field(default=50)
+    app_id: Optional[str] = Field(default=None)
+    private_key: Optional[str] = Field(default=None)
+    client_id: Optional[str] = Field(default=None)
+    client_secret: Optional[str] = Field(default=None)
+
+
+class NotificationSettings(BaseModel):
+    slack_webhook_url: Optional[str] = Field(default=None)
+
+
+class RedisSettings(BaseModel):
+    url: str = Field(default="redis://redis:6379/0")
 
 
 class Settings(BaseModel):
@@ -122,6 +135,8 @@ class Settings(BaseModel):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     s3: S3Settings = Field(default_factory=S3Settings)
     github: GitHubSettings = Field(default_factory=GitHubSettings)
+    redis: RedisSettings = Field(default_factory=RedisSettings)
+    notifications: NotificationSettings = Field(default_factory=NotificationSettings)
 
     @property
     def sonar_token(self) -> str:

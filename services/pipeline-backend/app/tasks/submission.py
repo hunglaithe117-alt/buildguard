@@ -12,6 +12,7 @@ from pipeline.sonar import normalize_repo_url
 
 logger = get_task_logger(__name__)
 
+
 @celery_app.task(bind=True)
 def submit_scan(
     self,
@@ -29,7 +30,7 @@ def submit_scan(
 
     # Normalize URL
     repo_url = normalize_repo_url(repo_url, repo_slug)
-    
+
     # Derive project key if not provided
     if not project_key:
         if repo_slug:
@@ -42,28 +43,32 @@ def submit_scan(
     # We need a project to attach the job to.
     # In this pipeline, 'Project' usually maps to a repo.
     # We'll try to find by repo_url or project_key.
-    
+
     # Note: repository service might need 'get_project_by_url' or similar.
     # For now, we'll assume we can search or create one.
     # Since we don't have a direct 'get_by_url', we'll create a new one if we can't find it easily.
     # But to avoid duplicates, we should probably use project_key as unique identifier if possible.
-    
+
     # Let's assume project_key is unique enough for now.
     # Ideally we'd query by project_key, but the repo service uses ObjectId.
     # We'll create a new project for this submission if we don't have a clear way to lookup.
     # OR, we can just create a "Ad-hoc" project.
-    
+
     # For simplicity in this refactor, we'll create a new project entry if it's a new submission
     # or reuse if we can find it.
     # Since we lack a search-by-key in the visible code, we'll create a new one.
     # TODO: Implement deduplication.
-    
-    project_doc = repository.create_project(
-        repository_url=repo_url,
-        project_key=project_key,
-        status=ProjectStatus.active.value,
-        source_path="", # No local CSV source
-    )
+
+    # Try to find existing project
+    project_doc = repository.find_project_by_key(project_key)
+    if not project_doc:
+        project_doc = repository.create_project(
+            full_name=repo_slug or project_key,
+            project_key=project_key,
+            total_builds=0,
+            total_commits=0,
+            source_path="",
+        )
     project_id = project_doc["id"]
 
     # Create Scan Job
@@ -80,8 +85,4 @@ def submit_scan(
     # Trigger Scan
     run_scan_job.delay(job_doc["id"])
 
-    return {
-        "job_id": job_doc["id"],
-        "project_id": project_id,
-        "status": "queued"
-    }
+    return {"job_id": job_doc["id"], "project_id": project_id, "status": "queued"}

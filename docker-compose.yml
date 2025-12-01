@@ -112,11 +112,15 @@ services:
   # BUILD RISK UI SERVICES
   # ==========================================
 
-  risk-backend:
+  # ==========================================
+  # BUILDGUARD SERVICES
+  # ==========================================
+
+  backend-api:
     build:
       context: ./services/app-backend
       dockerfile: Dockerfile
-    container_name: build-risk-backend
+    container_name: buildguard-api
     command: uv run opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
     restart: unless-stopped
@@ -139,7 +143,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       OTEL_TRACES_EXPORTER: zipkin
       OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
-      OTEL_SERVICE_NAME: risk-backend
+      OTEL_SERVICE_NAME: backend-api
       OTEL_PYTHON_LOG_CORRELATION: "true"
     ports:
       - "8000:8000"
@@ -155,11 +159,57 @@ services:
       redis:
         condition: service_healthy
 
-  risk-frontend:
+  backend-worker:
+    build:
+      context: ./services/pipeline-backend
+    container_name: buildguard-worker
+    command: uv run opentelemetry-instrument celery -A app.celery_app worker -l info -Q pipeline.ingest,pipeline.scan,pipeline.exports,import_repo,collect_workflow_logs,data_processing -c 4
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      PIPELINE_CONFIG: /app/config/pipeline.yml
+      HOME: /tmp
+      MONGODB_URI: mongodb://mongo:27017
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+      REDIS_URL: redis://redis:6379/0
+      SONAR_SCANNER_OPTS: "-Xmx2g -Xms512m"
+      SONAR_HOST_URL: http://sonarqube:9000
+      OTEL_TRACES_EXPORTER: zipkin
+      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      OTEL_SERVICE_NAME: backend-worker
+      OTEL_PYTHON_LOG_CORRELATION: "true"
+    volumes:
+      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./services/pipeline-backend/data:/app/data
+    depends_on:
+      - rabbitmq
+      - mongo
+      - sonarqube
+
+  backend-beat:
+    build:
+      context: ./services/pipeline-backend
+    container_name: buildguard-beat
+    command: celery -A app.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      PIPELINE_CONFIG: /app/config/pipeline.yml
+      HOME: /tmp
+      MONGODB_URI: mongodb://mongo:27017
+      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
+    volumes:
+      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./services/pipeline-backend/data:/app/data
+    depends_on:
+      - rabbitmq
+      - mongo
+
+  app-frontend:
     build:
       context: ./services/app-frontend
       dockerfile: Dockerfile
-    container_name: build-risk-frontend
+    container_name: buildguard-frontend
     command: npm run dev
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
     restart: unless-stopped
@@ -172,165 +222,7 @@ services:
       - /app/node_modules
       - /app/.next
     depends_on:
-      - risk-backend
-
-  risk-celery-worker:
-    build:
-      context: ./services/app-backend
-      dockerfile: Dockerfile
-    container_name: build-risk-celery-worker
-    command: uv run opentelemetry-instrument celery -A app.celery_app worker -Q risk.default,import_repo,collect_workflow_logs,data_processing --loglevel=info -c 4
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    restart: unless-stopped
-    environment:
-      MONGODB_URI: mongodb://travis:travis@mongo:27017
-      MONGODB_DB_NAME: buildguard
-      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
-      REDIS_URL: redis://redis:6379/0
-      HOME: /tmp
-      SONAR_SCANNER_OPTS: "-Xmx2g -Xms512m"
-      SONAR_HOST_URL: http://sonarqube:9000
-      SONAR_TOKEN: ${SONAR_TOKEN:-}
-      SONAR_DEFAULT_PROJECT_KEY: build-risk-ui
-      SONAR_WEBHOOK_SECRET: ${SONAR_WEBHOOK_SECRET:-change-me}
-      REPO_MIRROR_ROOT: /app/data/repo-mirrors
-      OTEL_TRACES_EXPORTER: zipkin
-      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
-      OTEL_SERVICE_NAME: risk-worker
-      OTEL_PYTHON_LOG_CORRELATION: "true"
-    volumes:
-      - ./services/app-backend:/app
-      - ./services/sonar_metrics.yml:/app/sonar_metrics.yml:ro
-      - shared_data:/app/data
-    depends_on:
-      mongo:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      sonarqube:
-        condition: service_started
-
-  risk-celery-beat:
-    build:
-      context: ./services/app-backend
-      dockerfile: Dockerfile
-    container_name: build-risk-celery-beat
-    command: uv run celery -A app.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    restart: unless-stopped
-    environment:
-      MONGODB_URI: mongodb://travis:travis@mongo:27017
-      MONGODB_DB_NAME: buildguard
-      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
-      REDIS_URL: redis://redis:6379/0
-      HOME: /tmp
-    volumes:
-      - ./services/app-backend:/app
-      - shared_data:/app/data
-    depends_on:
-      mongo:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  # ==========================================
-  # BUILD COMMIT PIPELINE SERVICES
-  # ==========================================
-
-  pipeline-api:
-    build:
-      context: ./services/pipeline-backend
-    container_name: build-commit-api
-    command: uv run opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8000
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    restart: unless-stopped
-    environment:
-      PIPELINE_CONFIG: /app/config/pipeline.yml
-      HOME: /tmp
-      # Update to use shared infra
-      MONGODB_URI: mongodb://mongo:27017
-      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
-      OTEL_TRACES_EXPORTER: zipkin
-      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
-      OTEL_SERVICE_NAME: pipeline-api
-      OTEL_PYTHON_LOG_CORRELATION: "true"
-    volumes:
-      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
-      - ./services/pipeline-backend/data:/app/data
-    depends_on:
-      - rabbitmq
-      - mongo
-    ports:
-      - "8001:8000" # Mapped to 8001 to avoid conflict
-
-  pipeline-worker-ingest:
-    build:
-      context: ./services/pipeline-backend
-    container_name: build-commit-worker-ingest
-    command: uv run opentelemetry-instrument celery -A app.celery_app.celery_app worker --loglevel=info -Q pipeline.ingest -n ingest.%h -c 1
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    restart: unless-stopped
-    environment:
-      PIPELINE_CONFIG: /app/config/pipeline.yml
-      HOME: /tmp
-      MONGODB_URI: mongodb://mongo:27017
-      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
-      OTEL_TRACES_EXPORTER: zipkin
-      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
-      OTEL_SERVICE_NAME: pipeline-ingest
-      OTEL_PYTHON_LOG_CORRELATION: "true"
-    volumes:
-      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
-      - ./services/pipeline-backend/data:/app/data
-    depends_on:
-      - rabbitmq
-      - mongo
-
-  pipeline-worker-scan:
-    build:
-      context: ./services/pipeline-backend
-    container_name: build-commit-worker-scan
-    command: uv run opentelemetry-instrument celery -A app.celery_app.celery_app worker --loglevel=info -Q pipeline.scan -n scan.%h -c 4
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    restart: unless-stopped
-    environment:
-      PIPELINE_CONFIG: /app/config/pipeline.yml
-      HOME: /tmp
-      SONAR_SCANNER_OPTS: "-Xmx2g -Xms512m"
-      MONGODB_URI: mongodb://mongo:27017
-      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
-      SONAR_HOST_URL: http://sonarqube:9000 # Use shared sonarqube
-      OTEL_TRACES_EXPORTER: zipkin
-      OTEL_EXPORTER_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
-      OTEL_SERVICE_NAME: pipeline-scan
-      OTEL_PYTHON_LOG_CORRELATION: "true"
-    volumes:
-      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
-      - ./services/pipeline-backend/data:/app/data
-    depends_on:
-      - rabbitmq
-      - mongo
-
-  pipeline-beat:
-    build:
-      context: ./services/pipeline-backend
-    container_name: build-commit-beat
-    command: celery -A app.celery_app.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    restart: unless-stopped
-    environment:
-      PIPELINE_CONFIG: /app/config/pipeline.yml
-      HOME: /tmp
-      MONGODB_URI: mongodb://mongo:27017
-      CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
-    volumes:
-      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
-      - ./services/pipeline-backend/data:/app/data
-    depends_on:
-      - rabbitmq
-      - mongo
+      - backend-api
 
 volumes:
   mongo_data:

@@ -24,6 +24,7 @@ class ScanJobsRepository(MongoRepositoryBase):
         component_key: str | None = None,
         sonar_instance: str | None = None,
         max_retries: int = 3,
+        external_job_id: str | None = None,
     ) -> Dict[str, Any]:
         now = datetime.utcnow()
         payload = {
@@ -37,6 +38,7 @@ class ScanJobsRepository(MongoRepositoryBase):
             "project_key": project_key,
             "component_key": component_key,
             "sonar_instance": sonar_instance,
+            "external_job_id": external_job_id,
             "created_at": now,
             "updated_at": now,
         }
@@ -51,7 +53,9 @@ class ScanJobsRepository(MongoRepositoryBase):
         )
         return self._serialize(doc)
 
-    def update_scan_job(self, job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def update_scan_job(
+        self, job_id: str, updates: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         updates["updated_at"] = datetime.utcnow()
         doc = self.db[self.collections.scan_jobs_collection].find_one_and_update(
             {"_id": ObjectId(job_id)},
@@ -80,10 +84,7 @@ class ScanJobsRepository(MongoRepositoryBase):
         collection = self.db[self.collections.scan_jobs_collection]
         total = collection.count_documents(query)
         cursor = (
-            collection.find(query)
-            .sort("created_at", -1)
-            .skip(skip)
-            .limit(page_size)
+            collection.find(query).sort("created_at", -1).skip(skip).limit(page_size)
         )
         items = [self._serialize(doc) for doc in cursor]
         return {"items": items, "total": total}
@@ -105,7 +106,9 @@ class ScanJobsRepository(MongoRepositoryBase):
         )
         return [self._serialize(doc) for doc in cursor]
 
-    def claim_job(self, status: str, worker_id: str, grace_seconds: int = 300) -> Optional[Dict[str, Any]]:
+    def claim_job(
+        self, status: str, worker_id: str, grace_seconds: int = 300
+    ) -> Optional[Dict[str, Any]]:
         now = datetime.utcnow()
         lock_until = now + timedelta(seconds=grace_seconds)
 

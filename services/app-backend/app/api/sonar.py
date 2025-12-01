@@ -71,11 +71,16 @@ async def sonar_webhook(
         logger.warning(f"No scan job found for component {component_key}")
         raise HTTPException(status_code=404, detail="Scan job not tracked")
 
-    from app.tasks.sonar import export_metrics_from_webhook
+    from app.infra.sonar import pipeline_client
 
-    export_metrics_from_webhook.delay(
-        component_key=component_key,
-        job_id=str(scan_job["_id"]),
+    pipeline_client.send_task(
+        "app.tasks.sonar.export_metrics",
+        kwargs={
+            "component_key": component_key,
+            "job_id": str(scan_job["_id"]),
+            "project_id": str(scan_job["repo_id"]),
+        },
+        queue="pipeline.exports",
     )
 
     logger.info(

@@ -9,7 +9,7 @@ from app.infra.repositories import (
     ImportedRepositoryRepository,
     WorkflowRunRepository,
 )
-from app.tasks.base import PipelineTask
+from app.workers import PipelineTask
 from app.workers import PipelineOrchestrator
 from app.utils.events import publish_build_update
 

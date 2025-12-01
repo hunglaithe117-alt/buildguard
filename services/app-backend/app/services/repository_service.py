@@ -22,7 +22,7 @@ from app.infra.repositories import (
 )
 from app.infra import get_public_github_client, get_user_github_client
 from app.services.github.github_sync import sync_user_available_repos
-from app.tasks.ingestion import import_repo
+from app.infra.sonar import pipeline_client
 
 
 logger = logging.getLogger(__name__)
@@ -123,14 +123,18 @@ class RepositoryService:
                 )
 
                 # Trigger async import
-                import_repo.delay(
-                    user_id=target_user_id,
-                    full_name=payload.full_name,
-                    installation_id=installation_id,
-                    provider=payload.provider,
-                    test_frameworks=payload.test_frameworks,
-                    source_languages=payload.source_languages,
-                    ci_provider=payload.ci_provider,
+                pipeline_client.send_task(
+                    "app.tasks.ingestion.import_repo",
+                    kwargs={
+                        "user_id": str(target_user_id),
+                        "full_name": payload.full_name,
+                        "installation_id": installation_id,
+                        "provider": payload.provider,
+                        "test_frameworks": payload.test_frameworks,
+                        "source_languages": payload.source_languages,
+                        "ci_provider": payload.ci_provider,
+                    },
+                    queue="import_repo",
                 )
 
                 results.append(repo_doc)
@@ -288,14 +292,18 @@ class RepositoryService:
         )
 
         # Trigger import task
-        import_repo.delay(
-            user_id=user_id,
-            full_name=repo_doc.full_name,
-            installation_id=repo_doc.installation_id,
-            provider=repo_doc.provider,
-            test_frameworks=repo_doc.test_frameworks,
-            source_languages=repo_doc.source_languages,
-            ci_provider=repo_doc.ci_provider,
+        pipeline_client.send_task(
+            "app.tasks.ingestion.import_repo",
+            kwargs={
+                "user_id": user_id,
+                "full_name": repo_doc.full_name,
+                "installation_id": repo_doc.installation_id,
+                "provider": repo_doc.provider,
+                "test_frameworks": repo_doc.test_frameworks,
+                "source_languages": repo_doc.source_languages,
+                "ci_provider": repo_doc.ci_provider,
+            },
+            queue="import_repo",
         )
 
         return {"status": "queued"}

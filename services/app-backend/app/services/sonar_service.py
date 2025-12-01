@@ -35,7 +35,7 @@ class SonarService:
         return repo.sonar_config if repo else None
 
     def trigger_scan(self, build_id: str) -> ScanJob:
-        from app.tasks.sonar import run_sonar_scan
+        from app.infra.sonar import sonar_producer
 
         build = self.build_service.get_build_detail(build_id)
         if not build:
@@ -55,12 +55,25 @@ class SonarService:
         created_job = self.scan_job_repo.create(job)
 
         # Trigger Celery task
-        run_sonar_scan.delay(str(created_job.id))
+        # Trigger Celery task
+        repo_doc = self.repo_repo.get(str(created_job.repo_id))
+        if not repo_doc:
+            # Should not happen as we got repo_id from build_sample
+            logger.error(
+                f"Repository {created_job.repo_id} not found for job {created_job.id}"
+            )
+        else:
+            sonar_producer.trigger_scan(
+                repo_url=repo_doc.html_url,
+                commit_sha=created_job.commit_sha,
+                repo_slug=repo_doc.name,
+                external_job_id=str(created_job.id),
+            )
 
         return created_job
 
     def retry_job(self, job_id: str, config_override: Optional[str] = None) -> ScanJob:
-        from app.tasks.sonar import run_sonar_scan
+        from app.infra.sonar import sonar_producer
 
         job = self.scan_job_repo.get(job_id)
         if not job:
@@ -87,7 +100,14 @@ class SonarService:
             },
         )
 
-        run_sonar_scan.delay(job_id)
+        repo_doc = self.repo_repo.get(str(job.repo_id))
+        if repo_doc:
+            sonar_producer.trigger_scan(
+                repo_url=repo_doc.html_url,
+                commit_sha=job.commit_sha,
+                repo_slug=repo_doc.name,
+                external_job_id=job_id,
+            )
         return updated_job
 
     def list_jobs(self, repo_id: str, skip: int = 0, limit: int = 20) -> dict:

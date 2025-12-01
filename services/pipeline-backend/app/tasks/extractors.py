@@ -19,6 +19,7 @@ from app.utils.events import publish_build_update
 
 logger = logging.getLogger(__name__)
 
+
 @celery_app.task(
     bind=True,
     base=PipelineTask,
@@ -76,7 +77,9 @@ def extract_git_features(self: PipelineTask, build_id: str) -> Dict[str, Any]:
     from app.services.extracts.git_feature_extractor import GitFeatureExtractor
 
     extractor = GitFeatureExtractor(self.db)
-    features = extractor.extract(build_sample, None, repo) # GitFeatureExtractor might not need workflow_run? 
+    features = extractor.extract(
+        build_sample, None, repo
+    )  # GitFeatureExtractor might not need workflow_run?
     # Wait, I updated GitFeatureExtractor to take workflow_run optional.
     # But here I pass None. It should be fine if it doesn't use it.
     # GitFeatureExtractor uses build_sample.tr_original_commit.
@@ -220,14 +223,16 @@ def finalize_build_sample(
             if risk_factors:
                 build_sample_repo.update_one(build_id, {"risk_factors": risk_factors})
                 merged_updates["risk_factors"] = risk_factors
-                
+
                 # Send Alert
                 try:
                     repo_repo = ImportedRepositoryRepository(self.db)
                     repo = repo_repo.find_by_id(str(build.repo_id))
                     shadow_mode = repo.shadow_mode if repo else False
-                    
-                    NotificationService().send_alert(build, risk_factors, shadow_mode=shadow_mode)
+
+                    NotificationService().send_alert(
+                        build, risk_factors, shadow_mode=shadow_mode
+                    )
                 except Exception as ns_e:
                     logger.error(f"Notification failed: {ns_e}")
         except Exception as e:

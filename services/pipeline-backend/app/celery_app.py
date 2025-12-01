@@ -17,7 +17,14 @@ celery_app = Celery(
     "build_commit_pipeline",
     broker=settings.broker.url,
     backend=settings.broker.result_backend,
-    include=["app.tasks.ingestion", "app.tasks.sonar", "app.tasks.submission"],
+    include=[
+        "app.tasks.ingestion",
+        "app.tasks.sonar",
+        "app.tasks.submission",
+        "app.tasks.github_ingestion",
+        "app.tasks.processing",
+        "app.tasks.extractors",
+    ],
 )
 
 celery_app.conf.update(
@@ -34,18 +41,27 @@ celery_app.conf.update(
         "app.tasks.sonar.run_scan_job": {"queue": "pipeline.scan"},
         "app.tasks.ingestion.ingest_project": {"queue": "pipeline.ingest"},
         "app.tasks.submission.submit_scan": {"queue": "pipeline.ingest"},
+        "app.tasks.ingestion.import_repo": {"queue": "import_repo"},
+        "app.tasks.ingestion.download_job_logs": {"queue": "collect_workflow_logs"},
+        "app.tasks.processing.process_workflow_run": {"queue": "data_processing"},
+        "app.tasks.processing.extract_build_log_features": {"queue": "data_processing"},
+        "app.tasks.processing.extract_git_features": {"queue": "data_processing"},
+        "app.tasks.processing.extract_repo_snapshot_features": {"queue": "data_processing"},
+        "app.tasks.processing.extract_github_discussion_features": {"queue": "data_processing"},
+        "app.tasks.processing.finalize_build_sample": {"queue": "data_processing"},
     },
 )
 
-    Queue("pipeline.ingest"),
-    Queue("pipeline.scan", queue_arguments={
-        "x-max-priority": 10,
-        "x-dead-letter-exchange": "dlx",
-        "x-dead-letter-routing-key": "pipeline.scan.dlq"
-    }),
-    Queue("pipeline.exports"),
-    Queue("pipeline.scan.dlq"),
-)
+    task_queues=(
+        Queue("pipeline.ingest"),
+        Queue("pipeline.scan", queue_arguments={
+            "x-max-priority": 10,
+            "x-dead-letter-exchange": "dlx",
+            "x-dead-letter-routing-key": "pipeline.scan.dlq"
+        }),
+        Queue("pipeline.exports"),
+        Queue("pipeline.scan.dlq"),
+    ),
 
 
 @celery_app.task(name="healthcheck")

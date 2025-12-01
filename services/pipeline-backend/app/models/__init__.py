@@ -1,6 +1,6 @@
 """Pydantic schemas used by the API."""
 
-from .schemas import (
+from app.domain import (
     FailedCommit,
     Project,
     ProjectStatus,

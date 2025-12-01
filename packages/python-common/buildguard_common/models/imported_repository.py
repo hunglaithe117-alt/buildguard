@@ -85,3 +85,11 @@ class ImportedRepository(BaseEntity):
     # Risk Governance
     risk_thresholds: Dict[str, int] = {"high": 80, "medium": 50}
     shadow_mode: bool = False
+
+    # Pipeline Backend Fields
+    project_key: Optional[str] = None
+    total_commits: int = 0
+    processed_commits: int = 0
+    failed_commits: int = 0
+    source_filename: Optional[str] = None
+    source_path: Optional[str] = None

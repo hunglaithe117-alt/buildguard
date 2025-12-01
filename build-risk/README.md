@@ -13,7 +13,7 @@ A comprehensive CI/CD risk assessment platform with SonarQube code quality integ
 ## Project Structure
 
 - `backend/`: FastAPI application, Celery workers, and domain logic
-- `frontend/`: Next.js web application
+- `frontend/`: Next.js web application (includes Sonar pipeline views)
 - `docker-compose.yml`: Infrastructure definitions
 
 ## Local Development Setup
@@ -131,6 +131,7 @@ Sign up at [sonarcloud.io](https://sonarcloud.io) and obtain your organization t
 3. Create a `.env.local` file (optional, defaults work for local dev):
    ```env
    NEXT_PUBLIC_API_URL=http://localhost:8000/api
+   NEXT_PUBLIC_PIPELINE_API_URL=http://localhost:8001/api
    ```
 
 4. Run the development server:
@@ -172,6 +173,12 @@ Sign up at [sonarcloud.io](https://sonarcloud.io) and obtain your organization t
    - Scan jobs table shows real-time status
    - Retry failed scans with one click
    - View error messages for debugging
+
+### Sonar Pipeline (scan-commit) Integration
+
+- The build-risk frontend now includes `/sonar-pipeline` to view Sonar scan projects and queue state from the pipeline backend (`scan-commit/backend`).
+- Configure `NEXT_PUBLIC_PIPELINE_API_URL` (default `http://localhost:8001/api`) so the UI can call the pipeline API.
+- The legacy `scan-commit/frontend` has been removed; the UI is consolidated into build-risk.
 
 ### Analysis Pipeline
 

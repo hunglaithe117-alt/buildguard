@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-from app.models.entities.base import PyObjectId
+from app.domain.entities import PyObjectId
 
 
 class BuildSummary(BaseModel):

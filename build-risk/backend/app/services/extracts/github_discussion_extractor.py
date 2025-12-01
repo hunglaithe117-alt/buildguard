@@ -4,10 +4,8 @@ from app.services.extracts.base import BaseExtractor
 
 from datetime import datetime, timezone
 
-from app.models.entities.build_sample import BuildSample
-from app.models.entities.imported_repository import ImportedRepository
-from app.models.entities.workflow_run import WorkflowRunRaw
-from app.repositories.workflow_run import WorkflowRunRepository
+from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
+from app.infra.repositories import WorkflowRunRepository
 from app.services.github.github_client import (
     get_app_github_client,
     get_public_github_client,

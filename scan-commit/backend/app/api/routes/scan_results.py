@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 
 from app.models import ScanResult
-from app.services import repository
+from app.infra.repositories import repository
 
 router = APIRouter()
 

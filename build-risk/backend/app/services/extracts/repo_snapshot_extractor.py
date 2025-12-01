@@ -7,9 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 from app.services.extracts.base import BaseExtractor
 
-from app.models.entities.build_sample import BuildSample
-from app.models.entities.imported_repository import ImportedRepository
-from app.models.entities.workflow_run import WorkflowRunRaw
+from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
 from app.services.extracts.diff_analyzer import (
     _is_source_file,
     _is_test_file,

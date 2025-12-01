@@ -8,7 +8,7 @@ from celery.utils.log import get_task_logger
 from app.celery_app import celery_app
 from app.core.config import settings
 from app.models import ProjectStatus
-from app.services import repository
+from app.infra.repositories import repository
 from pipeline.ingestion import CSVIngestionPipeline
 from pipeline.sonar import normalize_repo_url
 from app.tasks.sonar import run_scan_job

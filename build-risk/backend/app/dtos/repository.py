@@ -4,10 +4,12 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.entities.imported_repository import SourceLanguage
-from app.models.entities.imported_repository import TestFramework
-from app.models.entities.imported_repository import CIProvider
-from app.models.entities.base import PyObjectIdStr
+from app.domain.entities.imported_repository import (
+    SourceLanguage,
+    TestFramework,
+    CIProvider,
+)
+from app.domain.entities.base import PyObjectIdStr
 
 
 class RepoImportRequest(BaseModel):

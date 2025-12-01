@@ -4,8 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pymongo.database import Database
 
 from app.api.deps import get_db
-from app.repositories.build_sample import BuildSampleRepository
-from app.repositories.imported_repository import ImportedRepositoryRepository
+from app.infra.repositories import BuildSampleRepository, ImportedRepositoryRepository
 
 router = APIRouter()
 

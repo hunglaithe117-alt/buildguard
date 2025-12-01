@@ -3,16 +3,18 @@ from typing import Any, Dict, List
 
 from bson import ObjectId
 from app.celery_app import celery_app
-from app.models.entities.build_sample import BuildSample
-from app.repositories.build_sample import BuildSampleRepository
-from app.repositories.imported_repository import ImportedRepositoryRepository
-from app.repositories.workflow_run import WorkflowRunRepository
+from app.domain.entities import BuildSample
+from app.infra.repositories import (
+    BuildSampleRepository,
+    ImportedRepositoryRepository,
+    WorkflowRunRepository,
+)
 from app.services.extracts.build_log_extractor import BuildLogExtractor
 from app.services.extracts.github_discussion_extractor import GitHubDiscussionExtractor
 from app.services.extracts.repo_snapshot_extractor import RepoSnapshotExtractor
 from app.services.heuristics import HeuristicEngine
 from app.services.notifications import NotificationService
-from app.tasks.base import PipelineTask
+from app.workers import PipelineTask
 from app.utils.events import publish_build_update
 
 logger = logging.getLogger(__name__)

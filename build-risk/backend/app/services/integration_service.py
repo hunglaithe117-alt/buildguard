@@ -10,7 +10,7 @@ from app.dtos.github import (
     GithubInstallationListResponse,
     GithubInstallationResponse,
 )
-from app.services.github.github_client import get_user_github_client
+from app.infra import get_user_github_client
 
 
 class IntegrationService:

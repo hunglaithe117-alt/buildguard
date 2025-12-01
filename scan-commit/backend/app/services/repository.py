@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 
-from app.services.projects_repository import ProjectsRepository
-from app.services.scan_jobs_repository import ScanJobsRepository
-from app.services.scan_results_repository import ScanResultsRepository
-from app.services.failed_commits_repository import FailedCommitsRepository
+from app.infra.repositories import (
+    ProjectsRepository,
+    ScanJobsRepository,
+    ScanResultsRepository,
+    FailedCommitsRepository,
+)
 
 
 class Repository:

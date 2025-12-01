@@ -5,12 +5,14 @@ from bson import ObjectId
 from app.celery_app import celery_app
 
 from app.database.mongo import get_db
-from app.repositories.scan_job import ScanJobRepository
-from app.repositories.scan_result import ScanResultRepository
-from app.repositories.failed_scan import FailedScanRepository
-from app.repositories.imported_repository import ImportedRepositoryRepository
-from app.models.entities.scan_job import ScanJobStatus
-from app.models.entities.failed_scan import FailedScan, ScanErrorType, ScanStatus
+from app.infra.repositories import (
+    ScanJobRepository,
+    ScanResultRepository,
+    FailedScanRepository,
+    ImportedRepositoryRepository,
+)
+from app.domain.entities import ScanJobStatus  # type: ignore
+from app.domain.entities import FailedScan, ScanErrorType, ScanStatus
 from app.config import settings
 
 logger = logging.getLogger(__name__)

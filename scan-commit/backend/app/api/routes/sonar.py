@@ -10,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.core.config import settings
 from app.models import ScanJobStatus, ScanResult
-from app.services import repository
+from app.infra.repositories import repository
 from app.tasks.sonar import export_metrics
 import logging
 

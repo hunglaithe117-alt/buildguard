@@ -9,10 +9,8 @@ from fastapi import HTTPException, status
 from pymongo.database import Database
 
 from app.dtos import UserResponse
-from app.models.entities.oauth_identity import OAuthIdentity
-from app.models.entities.user import User
-from app.repositories.oauth_identity import OAuthIdentityRepository
-from app.repositories.user import UserRepository
+from app.domain.entities import OAuthIdentity, User
+from app.infra.repositories import OAuthIdentityRepository, UserRepository
 
 PROVIDER_GITHUB = "github"
 

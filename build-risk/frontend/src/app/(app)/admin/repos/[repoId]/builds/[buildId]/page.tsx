@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, RefreshCw, AlertTriangle, X } from "lucide-react";
@@ -35,11 +35,7 @@ export default function BuildDetailPage() {
     const [feedbackReason, setFeedbackReason] = useState("");
     const [isFalsePositive, setIsFalsePositive] = useState(false);
 
-    useEffect(() => {
-        loadBuild();
-    }, [repoId, buildId]);
-
-    const loadBuild = async () => {
+    const loadBuild = useCallback(async () => {
         try {
             const data = await reposApi.getBuild(repoId, buildId);
             setBuild(data);
@@ -48,7 +44,11 @@ export default function BuildDetailPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [repoId, buildId]);
+
+    useEffect(() => {
+        loadBuild();
+    }, [loadBuild]);
 
     const handleRescan = async () => {
         setRescanLoading(true);

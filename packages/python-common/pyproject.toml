@@ -1,0 +1,19 @@
+[project]
+name = "buildguard-common"
+version = "0.1.0"
+description = "Shared utilities for BuildGuard services (logging, telemetry, helpers)."
+requires-python = ">=3.11"
+dependencies = [
+  "python-json-logger>=2.0.7,<2.1.0",
+  "opentelemetry-api>=1.22.0",
+  "pymongo>=4.6,<5.0",
+  "celery>=5.3,<5.5",
+  "httpx>=0.25,<0.28",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["buildguard_common*"]

@@ -1,5 +1,5 @@
 import logging
-from app.models.entities.imported_repository import ImportStatus
+from app.domain.entities import ImportStatus
 from typing import List, Optional
 
 from bson import ObjectId
@@ -16,12 +16,11 @@ from app.dtos import (
     RepoSearchResponse,
 )
 from datetime import datetime, timezone
-from app.repositories.available_repository import AvailableRepositoryRepository
-from app.repositories.imported_repository import ImportedRepositoryRepository
-from app.services.github.github_client import (
-    get_public_github_client,
-    get_user_github_client,
+from app.infra.repositories import (
+    AvailableRepositoryRepository,
+    ImportedRepositoryRepository,
 )
+from app.infra import get_public_github_client, get_user_github_client
 from app.services.github.github_sync import sync_user_available_repos
 from app.tasks.ingestion import import_repo
 

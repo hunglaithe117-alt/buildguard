@@ -3,12 +3,14 @@ from typing import Any, Dict
 
 from bson import ObjectId
 from app.celery_app import celery_app
-from app.models.entities.build_sample import BuildSample
-from app.repositories.build_sample import BuildSampleRepository
-from app.repositories.imported_repository import ImportedRepositoryRepository
-from app.repositories.workflow_run import WorkflowRunRepository
+from app.domain.entities import BuildSample
+from app.infra.repositories import (
+    BuildSampleRepository,
+    ImportedRepositoryRepository,
+    WorkflowRunRepository,
+)
 from app.tasks.base import PipelineTask
-from app.services.pipeline_orchestrator import PipelineOrchestrator
+from app.workers import PipelineOrchestrator
 from app.utils.events import publish_build_update
 
 logger = logging.getLogger(__name__)

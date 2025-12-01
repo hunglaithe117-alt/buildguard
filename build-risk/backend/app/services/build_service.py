@@ -4,8 +4,7 @@ from bson import ObjectId
 from pymongo.database import Database
 
 from app.dtos.build import BuildDetail, BuildListResponse, BuildSummary
-from app.models.entities.build_sample import BuildSample
-from app.models.entities.workflow_run import WorkflowRunRaw
+from app.domain.entities import BuildSample, WorkflowRunRaw
 from app.celery_app import celery_app
 from datetime import datetime, timezone
 

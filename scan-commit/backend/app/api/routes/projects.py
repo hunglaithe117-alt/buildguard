@@ -13,7 +13,8 @@ from fastapi.responses import StreamingResponse
 
 from app.models import Project, ProjectStatus, ScanJobStatus
 from pipeline.ingestion import CSVIngestionPipeline
-from app.services import file_service, repository
+from app.services import file_service
+from app.infra.repositories import repository
 from app.tasks.ingestion import ingest_project
 from app.tasks.sonar import run_scan_job
 

@@ -2,7 +2,7 @@ import logging
 import httpx
 from typing import List
 from app.config import settings
-from app.models.entities.build_sample import BuildSample
+from app.domain.entities import BuildSample
 
 logger = logging.getLogger(__name__)
 

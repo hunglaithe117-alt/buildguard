@@ -8,7 +8,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.models import FailedCommit, ScanJobStatus
-from app.services import repository
+from app.infra.repositories import repository
 from app.tasks.sonar import run_scan_job
 
 router = APIRouter()

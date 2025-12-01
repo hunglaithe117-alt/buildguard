@@ -6,4 +6,8 @@ requires-python = ">=3.11"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["build-risk/backend", "scan-commit/backend"]
+members = [
+  "build-risk/backend",
+  "scan-commit/backend",
+  "packages/python-common",
+]

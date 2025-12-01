@@ -1,4 +1,4 @@
-from app.models.entities.imported_repository import ImportStatus
+from app.domain.entities import ImportStatus
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any
@@ -8,12 +8,10 @@ import time
 
 from app.celery_app import celery_app
 from app.services.github.github_client import get_app_github_client
-from app.tasks.base import PipelineTask
+from app.workers import PipelineTask
 from app.services.github.exceptions import GithubRateLimitError
-from app.repositories.imported_repository import ImportedRepositoryRepository
-from app.repositories.workflow_run import WorkflowRunRepository
-from app.repositories.workflow_run import WorkflowRunRepository
-from app.models.entities.workflow_run import WorkflowRunRaw
+from app.infra.repositories import ImportedRepositoryRepository, WorkflowRunRepository
+from app.domain.entities import WorkflowRunRaw
 
 
 logger = logging.getLogger(__name__)

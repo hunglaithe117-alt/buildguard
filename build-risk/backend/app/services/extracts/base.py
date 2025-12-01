@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
-from app.models.entities.build_sample import BuildSample
-from app.models.entities.imported_repository import ImportedRepository
-from app.models.entities.workflow_run import WorkflowRunRaw
+from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
 
 class BaseExtractor(ABC):
     """

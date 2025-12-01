@@ -1,8 +1,14 @@
-from .github_client import GitHubClient, GitHubTokenPool
-from .github_app import (
+from app.infra import (
+    GitHubClient,
+    GitHubTokenPool,
     github_app_configured,
     get_installation_token,
     clear_installation_token,
+)
+from .github_app import (
+    github_app_configured as _github_app_configured,  # backward compat
+    get_installation_token as _get_installation_token,
+    clear_installation_token as _clear_installation_token,
 )
 from .github_oauth import (
     verify_github_token,

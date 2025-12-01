@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,11 +15,7 @@ export function SonarConfigEditor({ repoId }: SonarConfigEditorProps) {
     const [saving, setSaving] = useState(false);
     const { toast } = useToast();
 
-    useEffect(() => {
-        loadConfig();
-    }, [repoId]);
-
-    const loadConfig = async () => {
+    const loadConfig = useCallback(async () => {
         try {
             const data = await sonarApi.getConfig(repoId);
             setContent(data.content || "");
@@ -33,7 +29,11 @@ export function SonarConfigEditor({ repoId }: SonarConfigEditorProps) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [repoId, toast]);
+
+    useEffect(() => {
+        loadConfig();
+    }, [loadConfig]);
 
     const handleSave = async () => {
         setSaving(true);

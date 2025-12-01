@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { buildApi, reposApi } from "@/lib/api";
 import { BuildDetail, BuildListResponse, CompareResponse } from "@/types";
@@ -38,26 +38,16 @@ export default function ComparePage() {
     const [comparison, setComparison] = useState<CompareResponse | null>(null);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        loadBuilds();
-    }, [repoId]);
-
-    useEffect(() => {
-        if (baseBuildId && headBuildId) {
-            compare();
-        }
-    }, [baseBuildId, headBuildId]);
-
-    const loadBuilds = async () => {
+    const loadBuilds = useCallback(async () => {
         try {
             const res = await buildApi.getByRepo(repoId, { limit: 100 }); // Fetch last 100 builds
             setBuilds(res.items);
         } catch (error) {
             console.error("Failed to load builds", error);
         }
-    };
+    }, [repoId]);
 
-    const compare = async () => {
+    const compare = useCallback(async () => {
         setLoading(true);
         try {
             const res = await reposApi.compareBuilds(repoId, baseBuildId, headBuildId);
@@ -67,7 +57,17 @@ export default function ComparePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [repoId, baseBuildId, headBuildId]);
+
+    useEffect(() => {
+        loadBuilds();
+    }, [loadBuilds]);
+
+    useEffect(() => {
+        if (baseBuildId && headBuildId) {
+            compare();
+        }
+    }, [baseBuildId, headBuildId, compare]);
 
     const formatMetric = (val: number) => {
         if (val > 0) return `+${val}`;
@@ -109,8 +109,10 @@ export default function ComparePage() {
                             <SelectContent>
                                 {builds.map((b) => (
                                     <SelectItem key={b.id} value={b.id}>
-                                        #{b.tr_build_number} ({b.status}) -{" "}
-                                        {new Date(b.gh_build_started_at!).toLocaleDateString()}
+                                        #{b.build_number} ({b.status}) -{" "}
+                                        {b.created_at
+                                            ? new Date(b.created_at).toLocaleDateString()
+                                            : "–"}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -126,8 +128,10 @@ export default function ComparePage() {
                             <SelectContent>
                                 {builds.map((b) => (
                                     <SelectItem key={b.id} value={b.id}>
-                                        #{b.tr_build_number} ({b.status}) -{" "}
-                                        {new Date(b.gh_build_started_at!).toLocaleDateString()}
+                                        #{b.build_number} ({b.status}) -{" "}
+                                        {b.created_at
+                                            ? new Date(b.created_at).toLocaleDateString()
+                                            : "–"}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

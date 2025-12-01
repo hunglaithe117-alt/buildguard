@@ -6,7 +6,7 @@ import threading
 from typing import List, Optional, Dict, Any, Tuple
 
 from pymongo import ReturnDocument, ASCENDING
-from app.services.repository_base import MongoRepositoryBase
+from app.infra.repositories import MongoRepositoryBase
 
 logger = logging.getLogger(__name__)
 

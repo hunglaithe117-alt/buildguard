@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
-from app.models.entities.build_sample import BuildSample
-from app.repositories.workflow_run import WorkflowRunRepository
+from app.domain.entities import BuildSample
+from app.infra.repositories import WorkflowRunRepository
 from pymongo.database import Database
 import logging
 

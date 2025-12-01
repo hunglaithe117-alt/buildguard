@@ -5,12 +5,14 @@ from typing import Optional
 from bson import ObjectId
 from pymongo.database import Database
 
-from app.models.entities.scan_job import ScanJob, ScanJobStatus
-from app.models.entities.failed_scan import FailedScan, ScanStatus
-from app.repositories.scan_job import ScanJobRepository
-from app.repositories.scan_result import ScanResultRepository
-from app.repositories.failed_scan import FailedScanRepository
-from app.repositories.imported_repository import ImportedRepositoryRepository
+from app.domain.entities import ScanJob, ScanJobStatus
+from app.domain.entities import FailedScan, ScanStatus
+from app.infra.repositories import (
+    ScanJobRepository,
+    ScanResultRepository,
+    FailedScanRepository,
+    ImportedRepositoryRepository,
+)
 from app.services.build_service import BuildService
 
 logger = logging.getLogger(__name__)

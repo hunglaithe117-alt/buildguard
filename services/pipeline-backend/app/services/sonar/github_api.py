@@ -10,15 +10,13 @@ import requests
 
 from app.core.config import settings
 
-LOG = logging.getLogger("pipeline.github")
+LOG = logging.getLogger("app.services.sonar.github")
 
 
 import hashlib
 import json
 import redis
-from app.services.github_token_service import GitHubTokenService
-
-LOG = logging.getLogger("pipeline.github")
+from app.services.github.github_token_service import GitHubTokenService
 
 
 class GitHubAPIError(RuntimeError):
@@ -42,11 +40,13 @@ class GitHubAPI:
         self.base_url = base_url.rstrip("/")
         self.token_service = GitHubTokenService()
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "build-commit-pipeline/sonar",
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "build-commit-pipeline/sonar",
+            }
+        )
         self.timeout = timeout
-        
+
         # Initialize Redis for Caching
         # We use the same Redis URL as Celery/App
         self.redis = redis.from_url(settings.redis.url)
@@ -67,7 +67,7 @@ class GitHubAPI:
     ) -> requests.Response:
         url = f"{self.base_url}{path}"
         errors: list[str] = []
-        
+
         # Check Cache (only for GET)
         cache_key = None
         etag = None
@@ -84,7 +84,7 @@ class GitHubAPI:
         attempts = 0
         # Try a reasonable number of times (e.g., 5) to get a working token
         max_attempts = 5
-        
+
         while attempts < max_attempts:
             attempts += 1
             try:
@@ -113,7 +113,7 @@ class GitHubAPI:
                     headers=headers,
                     timeout=self.timeout,
                 )
-                
+
                 # Update Token Status
                 self.token_service.update_token_status(token, resp.headers)
 
@@ -136,28 +136,30 @@ class GitHubAPI:
 
                 # Handle 403/429 Rate Limits
                 if resp.status_code == 429 or (
-                    resp.status_code == 403 and resp.headers.get("X-RateLimit-Remaining") == "0"
+                    resp.status_code == 403
+                    and resp.headers.get("X-RateLimit-Remaining") == "0"
                 ):
-                    LOG.warning(f"❌ Rate Limit Exceeded ({resp.status_code}). Token {token[:4]}... exhausted.")
+                    LOG.warning(
+                        f"❌ Rate Limit Exceeded ({resp.status_code}). Token {token[:4]}... exhausted."
+                    )
                     self.token_service.handle_rate_limit(token)
                     continue
 
                 # Handle Spammy/Abuse
                 if 400 < resp.status_code < 500 and "spammy" in resp.text.lower():
-                     LOG.warning(f"🚫 Token {token[:4]}... flagged as spammy.")
-                     self.token_service.disable_token(token)
-                     continue
+                    LOG.warning(f"🚫 Token {token[:4]}... flagged as spammy.")
+                    self.token_service.disable_token(token)
+                    continue
 
                 # Cache Successful GET Responses
                 if resp.status_code == 200 and cache_key:
                     new_etag = resp.headers.get("ETag")
                     if new_etag:
                         try:
-                            cache_data = {
-                                "etag": new_etag,
-                                "data": resp.json()
-                            }
-                            self.redis.setex(cache_key, self.cache_ttl, json.dumps(cache_data))
+                            cache_data = {"etag": new_etag, "data": resp.json()}
+                            self.redis.setex(
+                                cache_key, self.cache_ttl, json.dumps(cache_data)
+                            )
                         except Exception as e:
                             LOG.warning(f"Failed to cache response: {e}")
 
@@ -165,14 +167,16 @@ class GitHubAPI:
                     snippet = (resp.text or "")[:200]
                     message = f"GitHub API {resp.status_code} for {path}: {snippet}"
                     raise GitHubAPIError(resp.status_code, message)
-                
+
                 return resp
 
             except requests.RequestException as exc:
                 errors.append(str(exc))
                 continue
-        
-        raise GitHubAPIError(503, "All GitHub API attempts failed: " + "; ".join(errors))
+
+        raise GitHubAPIError(
+            503, "All GitHub API attempts failed: " + "; ".join(errors)
+        )
 
     @staticmethod
     def _encode_slug(repo_slug: str) -> str:
@@ -205,10 +209,7 @@ def get_github_client() -> Optional[GitHubAPI]:
     global _CLIENT
     if _CLIENT is not None:
         return _CLIENT
-    
-    # We no longer rely on settings.github.tokens for initialization
-    # The service will pull from MongoDB
-    
+
     _CLIENT = GitHubAPI(
         base_url=getattr(settings.github, "api_url", "https://api.github.com"),
     )

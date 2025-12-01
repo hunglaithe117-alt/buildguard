@@ -10,9 +10,13 @@ from app.celery_app import celery_app
 from app.core.config import settings
 from app.models import ProjectStatus, ScanJobStatus
 from app.infra.repositories import repository
-from pipeline.commit_replay import MissingForkCommitError
-from pipeline.github_api import GitHubRateLimitError
-from pipeline.sonar import MetricsExporter, get_runner_for_instance, normalize_repo_url
+from app.services.sonar.commit_replay import MissingForkCommitError
+from app.services.sonar.github_api import GitHubRateLimitError
+from app.services.sonar.runner import (
+    MetricsExporter,
+    get_runner_for_instance,
+    normalize_repo_url,
+)
 from buildguard_common.tasks import TASK_RUN_SCAN, TASK_EXPORT_METRICS
 
 logger = get_task_logger(__name__)

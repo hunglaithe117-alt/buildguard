@@ -6,9 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List
 
-from pipeline.github_api import GitHubAPI, GitHubAPIError, GitHubRateLimitError
+from app.services.sonar.github_api import (
+    GitHubAPI,
+    GitHubAPIError,
+    GitHubRateLimitError,
+)
 
-LOG = logging.getLogger("pipeline.commit_replay")
+LOG = logging.getLogger("app.services.sonar.commit_replay")
 
 
 class MissingForkCommitError(RuntimeError):

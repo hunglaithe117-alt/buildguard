@@ -9,8 +9,8 @@ from app.celery_app import celery_app
 from app.core.config import settings
 from app.models import ProjectStatus
 from app.infra.repositories import repository
-from pipeline.ingestion import CSVIngestionPipeline
-from pipeline.sonar import normalize_repo_url
+from app.services.ingestion.csv_pipeline import CSVIngestionPipeline
+from app.services.sonar.runner import normalize_repo_url
 from app.tasks.sonar import run_scan_job
 
 logger = get_task_logger(__name__)
@@ -53,7 +53,9 @@ def ingest_project(self, project_id: str) -> dict:
 
     total_commits = int(len(df_unique))
     if total_commits == 0:
-        repository.update_project(project_id, import_status=ProjectStatus.IMPORTED.value)
+        repository.update_project(
+            project_id, import_status=ProjectStatus.IMPORTED.value
+        )
         return {"project_id": project_id, "queued": 0}
 
     queued = 0

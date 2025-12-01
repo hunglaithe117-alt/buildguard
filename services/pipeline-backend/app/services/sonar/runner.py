@@ -15,17 +15,18 @@ from typing import Dict, Iterable, List, Optional
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import pybreaker
 
 from app.core.config import SonarInstanceSettings, settings
 from app.services.s3_service import s3_service
-from pipeline.commit_replay import (
+from app.services.sonar.commit_replay import (
     MissingForkCommitError,
     apply_replay_plan,
     build_replay_plan,
 )
-from pipeline.github_api import get_github_client
+from app.services.sonar.github_api import get_github_client, GitHubRateLimitError
 
-LOG = logging.getLogger("pipeline.sonar")
+LOG = logging.getLogger("app.services.sonar.runner")
 _RUNNER_CACHE: Dict[tuple[str, str], "SonarCommitRunner"] = {}
 
 
@@ -204,10 +205,6 @@ class SonarCommitRunner:
         apply_replay_plan(worktree, plan)
         return worktree
 
-    # def checkout_commit(self, commit_sha: str) -> None:
-    #     run_command(["git", "checkout", "-f", commit_sha], cwd=self.repo_dir)
-    #     run_command(["git", "clean", "-fdx"], cwd=self.repo_dir, allow_fail=True)
-
     def create_worktree(self, commit_sha: str, *, worktree_id: Optional[str] = None) -> Path:
         identifier = worktree_id or commit_sha
         target = self.worktrees_dir / identifier
@@ -300,11 +297,11 @@ class SonarCommitRunner:
             )
             return False
 
-import pybreaker
 
 # Circuit breaker for SonarQube scanning
 # Open after 5 failures, wait 60 seconds before trying again
 scan_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60)
+
 
     @scan_breaker
     def scan_commit(
@@ -527,15 +524,6 @@ class MetricsExporter:
     def collect_metrics(self, component_key: str) -> Dict[str, str]:
         """Return the latest metrics for a Sonar component without writing to disk."""
         return self._fetch_measures(component_key, self.metrics)
-
-
-__all__ = [
-    "SonarCommitRunner",
-    "MetricsExporter",
-    "CommitScanResult",
-    "normalize_repo_url",
-    "get_runner_for_instance",
-]
 
 
 def get_runner_for_instance(

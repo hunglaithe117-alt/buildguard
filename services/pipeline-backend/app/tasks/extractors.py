@@ -16,6 +16,13 @@ from app.services.heuristics import HeuristicEngine
 from app.services.notifications import NotificationService
 from app.workers import PipelineTask
 from app.utils.events import publish_build_update
+from buildguard_common.tasks import (
+    TASK_EXTRACT_BUILD_LOG,
+    TASK_EXTRACT_GIT,
+    TASK_EXTRACT_REPO_SNAPSHOT,
+    TASK_EXTRACT_DISCUSSION,
+    TASK_FINALIZE_SAMPLE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +30,7 @@ logger = logging.getLogger(__name__)
 @celery_app.task(
     bind=True,
     base=PipelineTask,
-    name="app.tasks.processing.extract_build_log_features",
+    name=TASK_EXTRACT_BUILD_LOG,
     queue="data_processing",
 )
 def extract_build_log_features(self: PipelineTask, build_id: str) -> Dict[str, Any]:
@@ -57,7 +64,7 @@ def extract_build_log_features(self: PipelineTask, build_id: str) -> Dict[str, A
 @celery_app.task(
     bind=True,
     base=PipelineTask,
-    name="app.tasks.processing.extract_git_features",
+    name=TASK_EXTRACT_GIT,
     queue="data_processing",
 )
 def extract_git_features(self: PipelineTask, build_id: str) -> Dict[str, Any]:
@@ -100,7 +107,7 @@ def extract_git_features(self: PipelineTask, build_id: str) -> Dict[str, Any]:
 @celery_app.task(
     bind=True,
     base=PipelineTask,
-    name="app.tasks.processing.extract_repo_snapshot_features",
+    name=TASK_EXTRACT_REPO_SNAPSHOT,
     queue="data_processing",
 )
 def extract_repo_snapshot_features(self: PipelineTask, build_id: str) -> Dict[str, Any]:
@@ -134,7 +141,7 @@ def extract_repo_snapshot_features(self: PipelineTask, build_id: str) -> Dict[st
 @celery_app.task(
     bind=True,
     base=PipelineTask,
-    name="app.tasks.processing.extract_github_discussion_features",
+    name=TASK_EXTRACT_DISCUSSION,
     queue="data_processing",
 )
 def extract_github_discussion_features(
@@ -170,7 +177,7 @@ def extract_github_discussion_features(
 @celery_app.task(
     bind=True,
     base=PipelineTask,
-    name="app.tasks.processing.finalize_build_sample",
+    name=TASK_FINALIZE_SAMPLE,
     queue="data_processing",
 )
 def finalize_build_sample(

@@ -23,6 +23,7 @@ from app.infra.repositories import (
 from app.infra import get_public_github_client, get_user_github_client
 from app.services.github.github_sync import sync_user_available_repos
 from app.infra.sonar import pipeline_client
+from buildguard_common.tasks import TASK_IMPORT_REPO
 
 
 logger = logging.getLogger(__name__)
@@ -124,7 +125,7 @@ class RepositoryService:
 
                 # Trigger async import
                 pipeline_client.send_task(
-                    "app.tasks.ingestion.import_repo",
+                    TASK_IMPORT_REPO,
                     kwargs={
                         "user_id": str(target_user_id),
                         "full_name": payload.full_name,
@@ -293,7 +294,7 @@ class RepositoryService:
 
         # Trigger import task
         pipeline_client.send_task(
-            "app.tasks.ingestion.import_repo",
+            TASK_IMPORT_REPO,
             kwargs={
                 "user_id": user_id,
                 "full_name": repo_doc.full_name,

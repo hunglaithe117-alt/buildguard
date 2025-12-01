@@ -13,6 +13,7 @@ from app.infra.repositories import repository
 from pipeline.commit_replay import MissingForkCommitError
 from pipeline.github_api import GitHubRateLimitError
 from pipeline.sonar import MetricsExporter, get_runner_for_instance, normalize_repo_url
+from buildguard_common.tasks import TASK_RUN_SCAN, TASK_EXPORT_METRICS
 
 logger = get_task_logger(__name__)
 
@@ -141,7 +142,7 @@ def _handle_scan_failure(
     raise task.retry(exc=exc, countdown=countdown)
 
 
-@celery_app.task(bind=True, max_retries=None)
+@celery_app.task(bind=True, max_retries=None, name=TASK_RUN_SCAN)
 def run_scan_job(self, scan_job_id: str) -> str:
     job = repository.get_scan_job(scan_job_id)
     if not job:
@@ -232,7 +233,7 @@ def run_scan_job(self, scan_job_id: str) -> str:
     return result.component_key
 
 
-@celery_app.task(bind=True, autoretry_for=(Exception,))
+@celery_app.task(bind=True, autoretry_for=(Exception,), name=TASK_EXPORT_METRICS)
 def export_metrics(
     self,
     component_key: str,

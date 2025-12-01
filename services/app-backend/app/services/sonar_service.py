@@ -64,10 +64,11 @@ class SonarService:
             )
         else:
             sonar_producer.trigger_scan(
-                repo_url=repo_doc.html_url,
-                commit_sha=created_job.commit_sha,
-                repo_slug=repo_doc.name,
+                TASK_RUN_SCAN,
+                args=[str(created_job.id)],
                 external_job_id=str(created_job.id),
+                repo_url=repo_doc.html_url,
+                repo_slug=repo_doc.name,
             )
 
         return created_job

@@ -18,13 +18,26 @@ celery_app = Celery(
     broker=settings.broker.url,
     backend=settings.broker.result_backend,
     include=[
-        "app.tasks.ingestion",
         "app.tasks.sonar",
         "app.tasks.submission",
         "app.tasks.github_ingestion",
         "app.tasks.processing",
         "app.tasks.extractors",
     ],
+)
+
+from buildguard_common.tasks import (
+    TASK_IMPORT_REPO,
+    TASK_DOWNLOAD_LOGS,
+    TASK_PROCESS_WORKFLOW,
+    TASK_EXTRACT_BUILD_LOG,
+    TASK_EXTRACT_GIT,
+    TASK_EXTRACT_REPO_SNAPSHOT,
+    TASK_EXTRACT_DISCUSSION,
+    TASK_FINALIZE_SAMPLE,
+    TASK_SUBMIT_SCAN,
+    TASK_RUN_SCAN,
+    TASK_EXPORT_METRICS,
 )
 
 celery_app.conf.update(
@@ -37,18 +50,17 @@ celery_app.conf.update(
     task_retry_jitter=True,
     task_default_max_retries=2,
     task_routes={
-        "app.tasks.sonar.export_metrics": {"queue": "pipeline.exports"},
-        "app.tasks.sonar.run_scan_job": {"queue": "pipeline.scan"},
-        "app.tasks.ingestion.ingest_project": {"queue": "pipeline.ingest"},
-        "app.tasks.submission.submit_scan": {"queue": "pipeline.ingest"},
-        "app.tasks.ingestion.import_repo": {"queue": "import_repo"},
-        "app.tasks.ingestion.download_job_logs": {"queue": "collect_workflow_logs"},
-        "app.tasks.processing.process_workflow_run": {"queue": "data_processing"},
-        "app.tasks.processing.extract_build_log_features": {"queue": "data_processing"},
-        "app.tasks.processing.extract_git_features": {"queue": "data_processing"},
-        "app.tasks.processing.extract_repo_snapshot_features": {"queue": "data_processing"},
-        "app.tasks.processing.extract_github_discussion_features": {"queue": "data_processing"},
-        "app.tasks.processing.finalize_build_sample": {"queue": "data_processing"},
+        TASK_EXPORT_METRICS: {"queue": "pipeline.exports"},
+        TASK_RUN_SCAN: {"queue": "pipeline.scan"},
+        TASK_SUBMIT_SCAN: {"queue": "pipeline.ingest"},
+        TASK_IMPORT_REPO: {"queue": "import_repo"},
+        TASK_DOWNLOAD_LOGS: {"queue": "collect_workflow_logs"},
+        TASK_PROCESS_WORKFLOW: {"queue": "data_processing"},
+        TASK_EXTRACT_BUILD_LOG: {"queue": "data_processing"},
+        TASK_EXTRACT_GIT: {"queue": "data_processing"},
+        TASK_EXTRACT_REPO_SNAPSHOT: {"queue": "data_processing"},
+        TASK_EXTRACT_DISCUSSION: {"queue": "data_processing"},
+        TASK_FINALIZE_SAMPLE: {"queue": "data_processing"},
     },
 )
 
@@ -61,7 +73,11 @@ celery_app.conf.update(
         }),
         Queue("pipeline.exports"),
         Queue("pipeline.scan.dlq"),
+        Queue("import_repo"),
+        Queue("collect_workflow_logs"),
+        Queue("data_processing"),
     ),
+)
 
 
 @celery_app.task(name="healthcheck")

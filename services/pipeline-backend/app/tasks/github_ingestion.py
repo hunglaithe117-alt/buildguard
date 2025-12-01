@@ -9,6 +9,11 @@ import time
 from app.celery_app import celery_app
 from app.services.github.github_client import get_app_github_client
 from app.workers import PipelineTask
+from buildguard_common.tasks import (
+    TASK_IMPORT_REPO,
+    TASK_DOWNLOAD_LOGS,
+    TASK_PROCESS_WORKFLOW,
+)
 from app.services.github.exceptions import GithubRateLimitError
 from app.infra.repositories import ImportedRepositoryRepository, WorkflowRunRepository
 from app.domain.entities import WorkflowRunRaw
@@ -23,7 +28,7 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 @celery_app.task(
     bind=True,
     base=PipelineTask,
-    name="app.tasks.ingestion.import_repo",
+    name=TASK_IMPORT_REPO,
     queue="import_repo",
 )
 def import_repo(
@@ -291,7 +296,7 @@ def import_repo(
 @celery_app.task(
     bind=True,
     base=PipelineTask,
-    name="app.tasks.ingestion.download_job_logs",
+    name=TASK_DOWNLOAD_LOGS,
     queue="collect_workflow_logs",
 )
 def download_job_logs(self: PipelineTask, repo_id: str, run_id: int) -> Dict[str, Any]:
@@ -353,9 +358,7 @@ def download_job_logs(self: PipelineTask, repo_id: str, run_id: int) -> Dict[str
         workflow_run_repo.update_one(str(workflow_run.id), {"log_fetched": True})
 
     # Trigger orchestrator
-    celery_app.send_task(
-        "app.tasks.processing.process_workflow_run", args=[repo_id, run_id]
-    )
+    celery_app.send_task(TASK_PROCESS_WORKFLOW, args=[repo_id, run_id])
 
     return {
         "repo_id": repo_id,

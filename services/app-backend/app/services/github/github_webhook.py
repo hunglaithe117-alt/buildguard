@@ -15,6 +15,7 @@ from app.domain.entities import WorkflowRunRaw
 from app.celery_app import celery_app
 from bson import ObjectId
 from app.services.github.github_app import clear_installation_token
+from buildguard_common.tasks import TASK_DOWNLOAD_LOGS, TASK_PROCESS_WORKFLOW
 
 
 def verify_signature(signature: str | None, body: bytes) -> None:
@@ -204,14 +205,10 @@ def _handle_workflow_run_event(
 
     if not log_fetched:
         # Trigger download logs
-        celery_app.send_task(
-            "app.tasks.ingestion.download_job_logs", args=[repo_id, run_id]
-        )
+        celery_app.send_task(TASK_DOWNLOAD_LOGS, args=[repo_id, run_id])
     else:
         # Trigger processing directly
-        celery_app.send_task(
-            "app.tasks.processing.process_workflow_run", args=[repo_id, run_id]
-        )
+        celery_app.send_task(TASK_PROCESS_WORKFLOW, args=[repo_id, run_id])
 
     return {
         "status": "processed",

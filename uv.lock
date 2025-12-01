@@ -173,7 +173,7 @@ wheels = [
 [[package]]
 name = "build-commit-pipeline-backend"
 version = "0.1.0"
-source = { editable = "scan-commit/backend" }
+source = { editable = "services/pipeline-backend" }
 dependencies = [
     { name = "boto3" },
     { name = "buildguard-common" },
@@ -230,7 +230,7 @@ requires-dist = [
 [[package]]
 name = "build-risk-backend"
 version = "0.1.0"
-source = { editable = "build-risk/backend" }
+source = { editable = "services/app-backend" }
 dependencies = [
     { name = "buildguard-common" },
     { name = "celery" },

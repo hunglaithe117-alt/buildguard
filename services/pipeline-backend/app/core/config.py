@@ -141,7 +141,12 @@ def _config_path() -> Path:
     env_path = os.getenv("PIPELINE_CONFIG")
     if env_path:
         return Path(env_path).expanduser().resolve()
-    return Path(__file__).resolve().parents[3] / "config" / "pipeline.yml"
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        candidate = parent / "config" / "pipeline.yml"
+        if candidate.exists():
+            return candidate
+    return current.parents[3] / "config" / "pipeline.yml"
 
 
 @lru_cache(maxsize=1)

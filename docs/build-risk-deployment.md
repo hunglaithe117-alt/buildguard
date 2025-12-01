@@ -188,7 +188,7 @@ sleep 120
 docker-compose up -d backend frontend celery-worker celery-beat
 
 # Start monitoring (optional)
-docker-compose up -d loki alloy grafana
+docker-compose up -d
 
 # Check service status
 docker-compose ps

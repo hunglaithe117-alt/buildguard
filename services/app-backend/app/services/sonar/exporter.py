@@ -1,14 +1,14 @@
-import requests
+import logging
+import os
+from pathlib import Path
 from typing import Dict, List, Optional
+
+import requests
+import yaml
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from app.config import settings
-
-
-import yaml
-from pathlib import Path
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -39,22 +39,27 @@ class MetricsExporter:
         ]
 
         try:
-            config_path = Path(__file__).resolve().parents[4] / "sonar_metrics.yml"
+            override = os.getenv("SONAR_METRICS_PATH")
+            candidates = []
+            if override:
+                candidates.append(Path(override))
+            # Walk up parent tree to find a nearby sonar_metrics.yml (works in dev + container)
+            candidates.extend([parent / "sonar_metrics.yml" for parent in Path(__file__).resolve().parents])
 
-            if not config_path.exists():
-                logger.warning(
-                    f"Metrics config not found at {config_path}, using defaults"
-                )
+            config_path: Optional[Path] = next((path for path in candidates if path.exists()), None)
+            if not config_path:
+                logger.warning("Metrics config not found, using defaults")
                 return default_metrics
 
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
 
             metrics = config.get("sonarqube", {}).get("measures", {}).get("keys", [])
             if not metrics:
-                logger.warning("No metrics found in config, using defaults")
+                logger.warning("No metrics found in metrics config, using defaults")
                 return default_metrics
 
+            logger.info("Loaded Sonar metrics config from %s", config_path)
             return metrics
 
         except Exception as e:

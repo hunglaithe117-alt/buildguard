@@ -1,6 +1,7 @@
 # Sonarqube Scan Pipeline
 
 Pipeline for commit data ingestion and SonarQube enrichment.
+Location in repo: `services/pipeline-backend/` (moved from `scan-commit/backend`).
 
 ## Features
 

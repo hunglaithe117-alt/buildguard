@@ -114,7 +114,7 @@ services:
 
   risk-backend:
     build:
-      context: ./build-risk/backend
+      context: ./services/app-backend
       dockerfile: Dockerfile
     container_name: build-risk-backend
     command: uv run opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -144,7 +144,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./build-risk/backend:/app
+      - ./services/app-backend:/app
+      - ./services/sonar_metrics.yml:/app/sonar_metrics.yml:ro
       - shared_data:/app/data
     depends_on:
       mongo:
@@ -156,7 +157,7 @@ services:
 
   risk-frontend:
     build:
-      context: ./build-risk/frontend
+      context: ./services/app-frontend
       dockerfile: Dockerfile
     container_name: build-risk-frontend
     command: npm run dev
@@ -167,7 +168,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./build-risk/frontend:/app
+      - ./services/app-frontend:/app
       - /app/node_modules
       - /app/.next
     depends_on:
@@ -175,7 +176,7 @@ services:
 
   risk-celery-worker:
     build:
-      context: ./build-risk/backend
+      context: ./services/app-backend
       dockerfile: Dockerfile
     container_name: build-risk-celery-worker
     command: uv run opentelemetry-instrument celery -A app.celery_app worker -Q risk.default,import_repo,collect_workflow_logs,data_processing --loglevel=info -c 4
@@ -198,7 +199,8 @@ services:
       OTEL_SERVICE_NAME: risk-worker
       OTEL_PYTHON_LOG_CORRELATION: "true"
     volumes:
-      - ./build-risk/backend:/app
+      - ./services/app-backend:/app
+      - ./services/sonar_metrics.yml:/app/sonar_metrics.yml:ro
       - shared_data:/app/data
     depends_on:
       mongo:
@@ -212,7 +214,7 @@ services:
 
   risk-celery-beat:
     build:
-      context: ./build-risk/backend
+      context: ./services/app-backend
       dockerfile: Dockerfile
     container_name: build-risk-celery-beat
     command: uv run celery -A app.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
@@ -225,7 +227,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       HOME: /tmp
     volumes:
-      - ./build-risk/backend:/app
+      - ./services/app-backend:/app
       - shared_data:/app/data
     depends_on:
       mongo:
@@ -239,7 +241,7 @@ services:
 
   pipeline-api:
     build:
-      context: ./scan-commit/backend
+      context: ./services/pipeline-backend
     container_name: build-commit-api
     command: uv run opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8000
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
@@ -255,8 +257,8 @@ services:
       OTEL_SERVICE_NAME: pipeline-api
       OTEL_PYTHON_LOG_CORRELATION: "true"
     volumes:
-      - ./scan-commit/backend/config/pipeline.yml:/app/config/pipeline.yml:ro
-      - ./scan-commit/backend/data:/app/data
+      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./services/pipeline-backend/data:/app/data
     depends_on:
       - rabbitmq
       - mongo
@@ -265,7 +267,7 @@ services:
 
   pipeline-worker-ingest:
     build:
-      context: ./scan-commit/backend
+      context: ./services/pipeline-backend
     container_name: build-commit-worker-ingest
     command: uv run opentelemetry-instrument celery -A app.celery_app.celery_app worker --loglevel=info -Q pipeline.ingest -n ingest.%h -c 1
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
@@ -280,15 +282,15 @@ services:
       OTEL_SERVICE_NAME: pipeline-ingest
       OTEL_PYTHON_LOG_CORRELATION: "true"
     volumes:
-      - ./scan-commit/backend/config/pipeline.yml:/app/config/pipeline.yml:ro
-      - ./scan-commit/backend/data:/app/data
+      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./services/pipeline-backend/data:/app/data
     depends_on:
       - rabbitmq
       - mongo
 
   pipeline-worker-scan:
     build:
-      context: ./scan-commit/backend
+      context: ./services/pipeline-backend
     container_name: build-commit-worker-scan
     command: uv run opentelemetry-instrument celery -A app.celery_app.celery_app worker --loglevel=info -Q pipeline.scan -n scan.%h -c 4
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
@@ -305,15 +307,15 @@ services:
       OTEL_SERVICE_NAME: pipeline-scan
       OTEL_PYTHON_LOG_CORRELATION: "true"
     volumes:
-      - ./scan-commit/backend/config/pipeline.yml:/app/config/pipeline.yml:ro
-      - ./scan-commit/backend/data:/app/data
+      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./services/pipeline-backend/data:/app/data
     depends_on:
       - rabbitmq
       - mongo
 
   pipeline-beat:
     build:
-      context: ./scan-commit/backend
+      context: ./services/pipeline-backend
     container_name: build-commit-beat
     command: celery -A app.celery_app.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
@@ -324,25 +326,11 @@ services:
       MONGODB_URI: mongodb://mongo:27017
       CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
     volumes:
-      - ./scan-commit/backend/config/pipeline.yml:/app/config/pipeline.yml:ro
-      - ./scan-commit/backend/data:/app/data
+      - ./config/pipeline.yml:/app/config/pipeline.yml:ro
+      - ./services/pipeline-backend/data:/app/data
     depends_on:
       - rabbitmq
       - mongo
-
-  pipeline-frontend:
-    build:
-      context: ./scan-commit/frontend
-    container_name: build-commit-frontend
-    command: npm run start -- -H 0.0.0.0 -p 3000
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8001 # Point to remapped API port
-    depends_on:
-      - pipeline-api
-    ports:
-      - "3001:3000" # Mapped to 3001 to avoid conflict
 
 volumes:
   mongo_data:

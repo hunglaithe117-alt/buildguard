@@ -7,7 +7,7 @@ dependencies = []
 
 [tool.uv.workspace]
 members = [
-  "build-risk/backend",
-  "scan-commit/backend",
+  "services/app-backend",
+  "services/pipeline-backend",
   "packages/python-common",
 ]

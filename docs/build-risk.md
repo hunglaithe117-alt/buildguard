@@ -176,7 +176,7 @@ Sign up at [sonarcloud.io](https://sonarcloud.io) and obtain your organization t
 
 ### Sonar Pipeline (scan-commit) Integration
 
-- The build-risk frontend now includes `/sonar-pipeline` to view Sonar scan projects and queue state from the pipeline backend (`scan-commit/backend`).
+- The build-risk frontend now includes `/sonar-pipeline` to view Sonar scan projects and queue state from the pipeline backend (`services/pipeline-backend`).
 - Configure `NEXT_PUBLIC_PIPELINE_API_URL` (default `http://localhost:8001/api`) so the UI can call the pipeline API.
 - The legacy `scan-commit/frontend` has been removed; the UI is consolidated into build-risk.
 

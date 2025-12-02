@@ -3,11 +3,14 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 
-from app.services.github_token_service import GitHubTokenService
+from buildguard_common.services.github_token_service import GithubTokenService
+from buildguard_common.mongo import get_database
+from app.config import settings
 from app.middleware.auth import require_admin
 
 router = APIRouter(dependencies=[Depends(require_admin)])
-token_service = GitHubTokenService()
+db = get_database(settings.MONGODB_URI, settings.MONGODB_DB_NAME)
+token_service = GithubTokenService(db)
 
 
 class TokenCreate(BaseModel):
@@ -60,11 +63,11 @@ def remove_token(token_id: str) -> Any:
     """
     token_doc = token_service.get_token(token_id)
     if not token_doc:
-         raise HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
-    
+
     success = token_service.remove_token(token_doc["token"])
     if not success:
         raise HTTPException(

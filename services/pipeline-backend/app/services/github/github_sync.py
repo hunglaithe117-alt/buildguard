@@ -1,4 +1,4 @@
-from app.infra.repositories import AvailableRepositoryRepository
+from app.repositories import AvailableRepositoryRepository
 from typing import List, Set
 
 from bson import ObjectId

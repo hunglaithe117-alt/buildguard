@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo import ReturnDocument
 
-from app.infra.repositories.base import MongoRepositoryBase
+from app.repositories.base import MongoRepositoryBase
 
 
 class FailedCommitsRepository(MongoRepositoryBase):
@@ -65,10 +65,7 @@ class FailedCommitsRepository(MongoRepositoryBase):
         collection = self.db[self.collections.failed_commits_collection]
         total = collection.count_documents(query)
         cursor = (
-            collection.find(query)
-            .sort("created_at", -1)
-            .skip(skip)
-            .limit(page_size)
+            collection.find(query).sort("created_at", -1).skip(skip).limit(page_size)
         )
         items = [self._serialize(doc) for doc in cursor]
         return {"items": items, "total": total}
@@ -85,7 +82,9 @@ class FailedCommitsRepository(MongoRepositoryBase):
         )
         return self._serialize(doc)
 
-    def update_failed_commit(self, record_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def update_failed_commit(
+        self, record_id: str, updates: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         updates["updated_at"] = datetime.utcnow()
         doc = self.db[self.collections.failed_commits_collection].find_one_and_update(
             {"_id": ObjectId(record_id)},

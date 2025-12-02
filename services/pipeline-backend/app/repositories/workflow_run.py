@@ -5,7 +5,7 @@ from typing import Optional
 from bson import ObjectId
 
 from app.domain.entities import WorkflowRunRaw
-from app.infra.repositories.base import BaseRepository
+from app.repositories.base import BaseRepository
 
 
 class WorkflowRunRepository(BaseRepository[WorkflowRunRaw]):

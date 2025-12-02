@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 
 from app.domain.entities import ImportedRepository, ImportStatus
-from app.infra.repositories.base import BaseRepository
+from app.repositories.base import BaseRepository
 
 
 class ImportedRepositoryRepository(BaseRepository[ImportedRepository]):
@@ -17,22 +17,33 @@ class ImportedRepositoryRepository(BaseRepository[ImportedRepository]):
     def get(self, repo_id: str | ObjectId) -> Optional[ImportedRepository]:
         return self.find_by_id(repo_id)
 
-    def find_by_full_name(self, user_id: str | ObjectId, full_name: str) -> Optional[ImportedRepository]:
+    def find_by_full_name(
+        self, user_id: str | ObjectId, full_name: str
+    ) -> Optional[ImportedRepository]:
         return self.find_one(
             {"user_id": self._to_object_id(user_id), "full_name": full_name}
         )
 
-    def upsert_repository(self, query: Dict[str, Any], data: Dict[str, Any]) -> ImportedRepository:
+    def upsert_repository(
+        self, query: Dict[str, Any], data: Dict[str, Any]
+    ) -> ImportedRepository:
         now = datetime.now(timezone.utc)
-        update = {"$set": data | {"updated_at": now}, "$setOnInsert": {"created_at": now}}
+        update = {
+            "$set": data | {"updated_at": now},
+            "$setOnInsert": {"created_at": now},
+        }
         self.collection.update_one(query, update, upsert=True)
         return self.find_one(query)
 
-    def update(self, repo_id: str | ObjectId, data: Dict[str, Any]) -> Optional[ImportedRepository]:
+    def update(
+        self, repo_id: str | ObjectId, data: Dict[str, Any]
+    ) -> Optional[ImportedRepository]:
         data["updated_at"] = datetime.now(timezone.utc)
         return super().update(repo_id, data)
 
-    def list_by_user(self, user_id: str | ObjectId, status: Optional[ImportStatus] = None) -> List[ImportedRepository]:
+    def list_by_user(
+        self, user_id: str | ObjectId, status: Optional[ImportStatus] = None
+    ) -> List[ImportedRepository]:
         query: Dict[str, Any] = {"user_id": self._to_object_id(user_id)}
         if status:
             query["import_status"] = status

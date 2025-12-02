@@ -7,11 +7,18 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo import ReturnDocument
 
-from app.infra.repositories.base import MongoRepositoryBase
+from app.repositories.base import MongoRepositoryBase
 
 
 class ScanResultsRepository(MongoRepositoryBase):
-    def upsert_result(self, *, job_id: str, project_id: str, metrics: Dict[str, Any], sonar_project_key: str) -> Dict[str, Any]:
+    def upsert_result(
+        self,
+        *,
+        job_id: str,
+        project_id: str,
+        metrics: Dict[str, Any],
+        sonar_project_key: str,
+    ) -> Dict[str, Any]:
         payload = {
             "job_id": ObjectId(job_id),
             "project_id": ObjectId(project_id),
@@ -42,15 +49,14 @@ class ScanResultsRepository(MongoRepositoryBase):
         collection = self.db[self.collections.scan_results_collection]
         total = collection.count_documents(query)
         cursor = (
-            collection.find(query)
-            .sort("created_at", -1)
-            .skip(skip)
-            .limit(page_size)
+            collection.find(query).sort("created_at", -1).skip(skip).limit(page_size)
         )
         items = [self._serialize(doc) for doc in cursor]
         return {"items": items, "total": total}
 
-    def list_results(self, project_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_results(
+        self, project_id: Optional[str] = None, limit: int = 50
+    ) -> List[Dict[str, Any]]:
         query: Dict[str, Any] = {}
         if project_id:
             query["project_id"] = ObjectId(project_id)

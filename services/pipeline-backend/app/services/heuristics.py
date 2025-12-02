@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 from app.domain.entities import BuildSample
-from app.infra.repositories import WorkflowRunRepository
+from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
 from pymongo.database import Database
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class HeuristicEngine:
     def __init__(self, db: Database):
@@ -38,12 +39,12 @@ class HeuristicEngine:
         # Use gh_build_started_at (datetime)
         if not build.gh_build_started_at:
             return False
-        
+
         # Ensure UTC
         dt = build.gh_build_started_at
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        
+
         # We use UTC for now as we don't have user timezone.
         # 00:00 - 06:00 UTC
         hour = dt.hour
@@ -70,17 +71,14 @@ class HeuristicEngine:
         # We can query workflow_runs collection
         # We need to ensure we have history. If we just imported, we might not have full history.
         # But assuming we have imported history.
-        
+
         first_run = self.db.workflow_runs.find_one(
-            {
-                "repo_id": build.repo_id,
-                "raw_payload.triggering_actor.login": login
-            },
-            sort=[("created_at", 1)]
+            {"repo_id": build.repo_id, "raw_payload.triggering_actor.login": login},
+            sort=[("created_at", 1)],
         )
-        
+
         if not first_run:
-            return False # Should not happen as current run exists
+            return False  # Should not happen as current run exists
 
         first_date = first_run["created_at"]
         if isinstance(first_date, str):

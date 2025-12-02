@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from bson import ObjectId
 
-from app.infra.repositories.base import MongoRepositoryBase
+from app.repositories.base import MongoRepositoryBase
 
 
 class BuildSamplesRepository(MongoRepositoryBase):

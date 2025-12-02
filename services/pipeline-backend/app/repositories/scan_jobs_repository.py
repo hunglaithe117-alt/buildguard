@@ -9,7 +9,7 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 
 from app.models import ScanJobStatus
-from app.infra.repositories.base import MongoRepositoryBase
+from app.repositories.base import MongoRepositoryBase
 
 
 class ScanJobsRepository(MongoRepositoryBase):

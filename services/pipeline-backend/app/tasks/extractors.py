@@ -4,11 +4,7 @@ from typing import Any, Dict, List
 from bson import ObjectId
 from app.celery_app import celery_app
 from app.domain.entities import BuildSample
-from app.infra.repositories import (
-    BuildSampleRepository,
-    ImportedRepositoryRepository,
-    WorkflowRunRepository,
-)
+from app.repositories import BuildSampleRepository, WorkflowRunRepository
 from app.services.extracts.build_log_extractor import BuildLogExtractor
 from app.services.extracts.github_discussion_extractor import GitHubDiscussionExtractor
 from app.services.extracts.repo_snapshot_extractor import RepoSnapshotExtractor

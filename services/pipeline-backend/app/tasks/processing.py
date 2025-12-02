@@ -4,7 +4,7 @@ from typing import Any, Dict
 from bson import ObjectId
 from app.celery_app import celery_app
 from app.domain.entities import BuildSample
-from app.infra.repositories import (
+from app.repositories import (
     BuildSampleRepository,
     ImportedRepositoryRepository,
     WorkflowRunRepository,

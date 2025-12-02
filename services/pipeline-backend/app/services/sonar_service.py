@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from app.infra.repositories import ScanJobsRepository, ProjectsRepository
+from app.repositories import ScanJobsRepository, ProjectsRepository
 from app.tasks.sonar import run_scan_job, export_metrics
 from app.models import ScanJobStatus
 from pymongo.database import Database
@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 class SonarService:
     def __init__(self, db: Database):
         self.db = db
-        self.scan_job_repo = ScanJobsRepository(db)
-        self.project_repo = ProjectsRepository(db)
+        self.scan_job_repo = ScanJobsRepository()
+        self.project_repo = ProjectsRepository()
 
     def scan_and_wait(self, repo_id: str, commit_sha: str) -> Dict[str, Any]:
         """

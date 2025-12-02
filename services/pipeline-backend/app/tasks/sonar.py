@@ -9,7 +9,7 @@ from celery.utils.log import get_task_logger
 from app.celery_app import celery_app
 from app.core.config import settings
 from app.models import ProjectStatus, ScanJobStatus
-from app.infra.repositories import repository
+from app.repositories import repository
 from app.services.sonar.commit_replay import MissingForkCommitError
 from app.services.sonar.github_api import GitHubRateLimitError
 from app.services.sonar.runner import (

@@ -1,19 +1,20 @@
-from __future__ import annotations
-
 import logging
-import time
 import threading
-from typing import List, Optional, Dict, Any, Tuple
+import time
+from typing import Any, Dict, List, Optional, Tuple
 
-from pymongo import ASCENDING
-from app.config import settings
-from buildguard_common.mongo import get_database
+from pymongo.database import Database
+
+from buildguard_common.models.github_public_token import GithubPublicToken
+from buildguard_common.repositories.github_public_token import (
+    GithubPublicTokenRepository,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class Token:
-    """Represents a GitHub API token with its rate limit state."""
+    """Represents a GitHub API token with its rate limit state (in-memory representation)."""
 
     def __init__(self, token_str: str, remaining: int = 5000, reset_time: float = 0.0):
         self.key = token_str.strip()
@@ -25,42 +26,30 @@ class Token:
         return f"<Token {self.key[:4]}... Rem:{self.remaining}>"
 
 
-class GitHubTokenService:
+class GithubTokenService:
     """
-    Token Manager backed by MongoDB.
+    Token Manager backed by MongoDB (github_public_tokens).
     Directly queries MongoDB for token operations.
     """
 
-    def __init__(self) -> None:
-        self.db = get_database(settings.MONGODB_URI, settings.MONGODB_DB_NAME)
-        self.collection = self.db["github_tokens"]
-        self._ensure_indexes()
+    def __init__(self, db: Database) -> None:
+        self.repo = GithubPublicTokenRepository(db)
         self.pool_lock = threading.Lock()
-
-    def _ensure_indexes(self):
-        self.collection.create_index([("token", ASCENDING)], unique=True)
-        self.collection.create_index("type")
-        self.collection.create_index("disabled")
 
     def add_token(
         self, token_str: str, token_type: str = "pat", enable: bool = True
     ) -> bool:
         """Add a new token to MongoDB."""
         try:
-            self.collection.update_one(
-                {"token": token_str},
-                {
-                    "$set": {
-                        "type": token_type,
-                        "disabled": not enable,
-                        "added_at": time.time(),
-                        # Default values if new
-                        "remaining": 5000,
-                        "reset_time": 0.0,
-                    }
-                },
-                upsert=True,
+            token = GithubPublicToken(
+                token=token_str,
+                type=token_type,
+                disabled=not enable,
+                added_at=time.time(),
+                remaining=5000,
+                reset_time=0.0,
             )
+            self.repo.upsert_token(token)
             return True
         except Exception as e:
             logger.error(f"Failed to add token to Mongo: {e}")
@@ -76,18 +65,17 @@ class GitHubTokenService:
                 current_time = time.time()
 
                 # Fetch all non-disabled tokens
-                cursor = self.collection.find({"disabled": {"$ne": True}})
-                docs = list(cursor)
+                tokens = self.repo.find_available_tokens()
 
-                if not docs:
+                if not tokens:
                     raise RuntimeError("No active tokens found in MongoDB.")
 
-                available_candidates: List[Tuple[Dict[str, Any], int]] = []
+                available_candidates: List[Tuple[GithubPublicToken, int]] = []
                 min_reset_time = float("inf")
 
-                for doc in docs:
-                    remaining = doc.get("remaining", 5000)
-                    reset_time = doc.get("reset_time", 0.0)
+                for token in tokens:
+                    remaining = token.remaining
+                    reset_time = token.reset_time
 
                     # Track min reset time for sleeping
                     if reset_time < min_reset_time:
@@ -100,17 +88,17 @@ class GitHubTokenService:
                         remaining = 5000
 
                     if remaining > 0:
-                        available_candidates.append((doc, remaining))
+                        available_candidates.append((token, remaining))
 
                 if available_candidates:
                     # Load balancing: pick one with max remaining
-                    best_doc, _ = max(available_candidates, key=lambda x: x[1])
+                    best_token, _ = max(available_candidates, key=lambda x: x[1])
 
                     # Construct Token object
                     t = Token(
-                        best_doc["token"],
-                        remaining=best_doc.get("remaining", 5000),
-                        reset_time=best_doc.get("reset_time", 0.0),
+                        best_token.token,
+                        remaining=best_token.remaining,
+                        reset_time=best_token.reset_time,
                     )
 
                     # If we assumed it reset, let's update the object state
@@ -147,15 +135,27 @@ class GitHubTokenService:
             updates["last_used"] = time.time()
 
             if updates:
-                self.collection.update_one({"token": token_key}, {"$set": updates})
+                self.repo.update(
+                    token_key, updates
+                )  # Note: update expects ID or we need find_by_token first?
+                # BaseRepository.update expects ID. But here we have token_key.
+                # We should use update_one with query or find ID first.
+                # Let's fix this in the repository or here.
+                # Since BaseRepository is generic, let's use collection directly or add method to repo.
 
-                # Log status for debugging
-                rem = updates.get("remaining", "?")
-                res = updates.get("reset_time", 0)
-                wait = int(res - time.time()) if res else 0
-                logger.debug(
-                    f"🔄 Updated {token_key[:4]}... | Rem: {rem} | Resets in: {wait}s"
-                )
+                # Better: add update_by_token to repository or use collection directly.
+                # But we want to use repository pattern.
+                token = self.repo.find_by_token(token_key)
+                if token and token.id:
+                    self.repo.update(token.id, updates)
+
+                    # Log status for debugging
+                    rem = updates.get("remaining", "?")
+                    res = updates.get("reset_time", 0)
+                    wait = int(res - time.time()) if res else 0
+                    logger.debug(
+                        f"🔄 Updated {token_key[:4]}... | Rem: {rem} | Resets in: {wait}s"
+                    )
 
         except Exception as e:
             logger.error(f"Failed to update token {token_key[:4]}... in Mongo: {e}")
@@ -165,13 +165,13 @@ class GitHubTokenService:
         try:
             # Force a cool-off period
             new_reset = time.time() + 60
-            self.collection.update_one(
-                {"token": token_key},
-                {"$set": {"remaining": 0, "reset_time": new_reset}},
-            )
-            logger.warning(
-                f"Token {token_key[:4]}... rate limited. Cooldown set in Mongo."
-            )
+
+            token = self.repo.find_by_token(token_key)
+            if token and token.id:
+                self.repo.update(token.id, {"remaining": 0, "reset_time": new_reset})
+                logger.warning(
+                    f"Token {token_key[:4]}... rate limited. Cooldown set in Mongo."
+                )
         except Exception as e:
             logger.error(
                 f"Failed to handle rate limit for {token_key[:4]}... in Mongo: {e}"
@@ -180,21 +180,21 @@ class GitHubTokenService:
     def disable_token(self, token_key: str) -> None:
         """Disable token in MongoDB."""
         try:
-            self.collection.update_one(
-                {"token": token_key},
-                {"$set": {"disabled": True, "disabled_at": time.time()}},
-            )
-            logger.info(f"🚫 Token {token_key[:4]}... disabled in MongoDB.")
+            token = self.repo.find_by_token(token_key)
+            if token and token.id:
+                self.repo.update(
+                    token.id, {"disabled": True, "disabled_at": time.time()}
+                )
+                logger.info(f"🚫 Token {token_key[:4]}... disabled in MongoDB.")
         except Exception as e:
             logger.error(f"Failed to disable token in Mongo: {e}")
 
     def remove_token(self, token_key: str) -> bool:
         """Permanently remove token from MongoDB."""
         try:
-            result = self.collection.delete_one({"token": token_key})
-            if result.deleted_count > 0:
-                logger.info(f"🗑️ Token {token_key[:4]}... removed from MongoDB.")
-                return True
+            token = self.repo.find_by_token(token_key)
+            if token and token.id:
+                return self.repo.delete(token.id)
             else:
                 logger.warning(
                     f"Token {token_key[:4]}... not found in MongoDB to remove."
@@ -206,19 +206,18 @@ class GitHubTokenService:
 
     def list_tokens(self) -> List[Dict[str, Any]]:
         """List all tokens with their status."""
-        cursor = self.collection.find().sort("added_at", -1)
-        return [self._serialize(doc) for doc in cursor]
+        # Return dicts for compatibility or models?
+        # Existing service returned dicts via _serialize.
+        # Let's return dicts to minimize changes in consumers.
+        cursor = self.repo.collection.find().sort("added_at", -1)
+        return [self.repo._serialize(doc) for doc in cursor]
 
     def get_token(self, token_id: str) -> Optional[Dict[str, Any]]:
-        from bson import ObjectId
-
-        doc = self.collection.find_one({"_id": ObjectId(token_id)})
-        return self._serialize(doc) if doc else None
-
-    def _serialize(self, doc: Dict[str, Any]) -> Dict[str, Any]:
-        if not doc:
-            return {}
-        # Convert ObjectId to string
-        if "_id" in doc:
-            doc["id"] = str(doc.pop("_id"))
-        return doc
+        token = self.repo.find_by_id(token_id)
+        if token:
+            # Convert model to dict and handle ID
+            d = token.model_dump(by_alias=True)
+            if "_id" in d:
+                d["id"] = str(d.pop("_id"))
+            return d
+        return None

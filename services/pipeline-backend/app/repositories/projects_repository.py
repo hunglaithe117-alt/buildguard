@@ -9,7 +9,7 @@ from pymongo import ReturnDocument
 from bson import ObjectId
 
 from app.models import ProjectStatus
-from app.infra.repositories.base import MongoRepositoryBase
+from app.repositories.base import MongoRepositoryBase
 
 _UNSET = object()
 

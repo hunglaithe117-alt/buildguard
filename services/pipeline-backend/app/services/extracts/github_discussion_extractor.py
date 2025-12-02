@@ -5,7 +5,7 @@ from app.services.extracts.base import BaseExtractor
 from datetime import datetime, timezone
 
 from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
-from app.infra.repositories import WorkflowRunRepository
+from app.repositories import ImportedRepositoryRepository
 from app.services.github.github_client import (
     get_app_github_client,
     get_public_github_client,

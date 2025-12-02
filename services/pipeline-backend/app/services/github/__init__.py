@@ -1,9 +1,8 @@
-from app.infra import (
-    GitHubClient,
-    GitHubTokenPool,
-    github_app_configured,
-    get_installation_token,
-    clear_installation_token,
+from buildguard_common.github_client import GitHubClient, GitHubTokenPool
+from buildguard_common.github_wiring import (
+    get_app_github_client,
+    get_public_github_client,
+    get_user_github_client,
 )
 from .github_app import (
     github_app_configured as _github_app_configured,  # backward compat

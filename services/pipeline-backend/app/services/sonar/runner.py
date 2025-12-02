@@ -29,6 +29,10 @@ from app.services.sonar.github_api import get_github_client, GitHubRateLimitErro
 LOG = logging.getLogger("app.services.sonar.runner")
 _RUNNER_CACHE: Dict[tuple[str, str], "SonarCommitRunner"] = {}
 
+# Circuit breaker for SonarQube scanning
+# Open after 5 failures, wait 60 seconds before trying again
+scan_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60)
+
 
 @dataclass
 class CommitScanResult:
@@ -205,7 +209,9 @@ class SonarCommitRunner:
         apply_replay_plan(worktree, plan)
         return worktree
 
-    def create_worktree(self, commit_sha: str, *, worktree_id: Optional[str] = None) -> Path:
+    def create_worktree(
+        self, commit_sha: str, *, worktree_id: Optional[str] = None
+    ) -> Path:
         identifier = worktree_id or commit_sha
         target = self.worktrees_dir / identifier
         if target.exists():
@@ -297,12 +303,6 @@ class SonarCommitRunner:
             )
             return False
 
-
-# Circuit breaker for SonarQube scanning
-# Open after 5 failures, wait 60 seconds before trying again
-scan_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60)
-
-
     @scan_breaker
     def scan_commit(
         self,
@@ -374,7 +374,9 @@ scan_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60)
                             fallback_url = None
 
                         if fallback_url and fallback_url != repo_url:
-                            if self._fetch_commit_from_fork(repo, commit_sha, fallback_url):
+                            if self._fetch_commit_from_fork(
+                                repo, commit_sha, fallback_url
+                            ):
                                 commit_present = self._commit_exists(repo, commit_sha)
                                 if commit_present:
                                     LOG.info(
@@ -390,7 +392,8 @@ scan_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60)
                                 )
                         else:
                             LOG.debug(
-                                "No alternate fork URL derived for repo slug %s", repo_slug
+                                "No alternate fork URL derived for repo slug %s",
+                                repo_slug,
                             )
 
                 if commit_present:
@@ -439,20 +442,6 @@ scan_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=60)
             if worktree is not None:
                 with self.repo_mutex():
                     self.remove_worktree(worktree_id)
-
-    def detect_project_type(self, root: Path) -> str:
-        ruby_hits = 0
-        if (root / "Gemfile").exists() or ((root / "Rakefile").exists()):
-            return "ruby"
-        if any(root.glob("*.gemspec")):
-            return "ruby"
-        for path in root.rglob("*.rb"):
-            ruby_hits += 1
-            if ruby_hits >= 5:
-                break
-        if ruby_hits:
-            return "ruby"
-        return "unknown"
 
 
 class MetricsExporter:

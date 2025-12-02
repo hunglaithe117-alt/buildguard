@@ -9,7 +9,7 @@ from git import Repo, Commit
 from pymongo.database import Database
 
 from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
-from app.infra.repositories import BuildSampleRepository, WorkflowRunRepository
+from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
 from app.services.extracts.base import BaseExtractor
 from app.services.github.github_app import get_installation_token
 from app.utils.locking import repo_lock

@@ -10,7 +10,7 @@ from pymongo.database import Database
 
 from app.config import settings
 from app.services.github.github_sync import sync_user_available_repos
-from app.infra.repositories import WorkflowRunRepository
+from app.repositories import WorkflowRunRepository
 from app.domain.entities import WorkflowRunRaw
 from app.celery_app import celery_app
 from bson import ObjectId

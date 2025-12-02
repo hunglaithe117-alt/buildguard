@@ -15,7 +15,7 @@ from buildguard_common.tasks import (
     TASK_PROCESS_WORKFLOW,
 )
 from app.services.github.exceptions import GithubRateLimitError
-from app.infra.repositories import ImportedRepositoryRepository, WorkflowRunRepository
+from app.repositories import ImportedRepositoryRepository, WorkflowRunRepository
 from app.domain.entities import WorkflowRunRaw
 
 

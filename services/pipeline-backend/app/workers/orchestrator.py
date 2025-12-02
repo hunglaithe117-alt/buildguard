@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from app.services.extracts.git_feature_extractor import GitFeatureExtractor
 from app.services.sonar_service import SonarService
-from app.infra.repositories import BuildSampleRepository, ImportedRepositoryRepository
+from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
 from app.domain.entities import BuildSample
 from pymongo.database import Database
 

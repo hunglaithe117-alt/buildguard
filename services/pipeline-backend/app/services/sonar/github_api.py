@@ -16,7 +16,8 @@ LOG = logging.getLogger("app.services.sonar.github")
 import hashlib
 import json
 import redis
-from app.services.github.github_token_service import GitHubTokenService
+from buildguard_common.services.github_token_service import GithubTokenService
+from buildguard_common.mongo import get_database
 
 
 class GitHubAPIError(RuntimeError):
@@ -38,7 +39,8 @@ class GitHubAPI:
 
     def __init__(self, base_url: str, *, timeout: int = 30) -> None:
         self.base_url = base_url.rstrip("/")
-        self.token_service = GitHubTokenService()
+        db = get_database(settings.mongo.uri, settings.mongo.database)
+        self.token_service = GithubTokenService(db)
         self.session = requests.Session()
         self.session.headers.update(
             {

@@ -1,5 +1,4 @@
 import logging
-import time
 from contextlib import contextmanager
 from typing import Generator
 
@@ -20,8 +19,6 @@ def repo_lock(repo_id: str, timeout: int = 300) -> Generator[bool, None, None]:
     """
     r = redis.from_url(settings.REDIS_URL)
     lock_name = f"lock:repo:{repo_id}"
-    # expire: Time in seconds after which the lock will be automatically released
-    # timeout: Time in seconds to wait to acquire the lock
     lock = r.lock(lock_name, timeout=300, blocking_timeout=timeout)
 
     acquired = False

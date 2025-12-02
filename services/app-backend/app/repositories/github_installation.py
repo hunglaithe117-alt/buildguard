@@ -1,3 +1,20 @@
-"""Compatibility shim for GithubInstallationRepository."""
+"""Repository for GitHub installations (infra layer)."""
 
-from app.infra.repositories.github_installation import GithubInstallationRepository  # noqa: F401
+from typing import Optional
+
+from app.domain.entities import GithubInstallation
+from buildguard_common.mongo import get_database
+from app.repositories.base import BaseRepository
+
+
+class GithubInstallationRepository(BaseRepository[GithubInstallation]):
+    def __init__(self, db):
+        super().__init__(db, "github_installations", GithubInstallation)
+
+    def find_by_installation_id(
+        self, installation_id: str
+    ) -> Optional[GithubInstallation]:
+        return self.find_one({"installation_id": installation_id})
+
+
+__all__ = ["GithubInstallationRepository"]

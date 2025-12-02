@@ -1,18 +1,25 @@
-"""Repository layer for database operations"""
+"""Repository layer re-exports for compatibility during refactor."""
 
-from .available_repository import AvailableRepositoryRepository
-from .base import BaseRepository
-from .build_sample import BuildSampleRepository
-from .github_installation import GithubInstallationRepository
-from .imported_repository import ImportedRepositoryRepository
-from .oauth_identity import OAuthIdentityRepository
-from .user import UserRepository
-from .workflow_run import WorkflowRunRepository
+from app.repositories.available_repository import AvailableRepositoryRepository
+from app.repositories.build_sample import BuildSampleRepository
+from app.repositories.failed_scan import FailedScanRepository
+from app.repositories.github_installation import GithubInstallationRepository
+from app.repositories.imported_repository import ImportedRepositoryRepository
+from app.repositories.oauth_identity import OAuthIdentityRepository
+from app.repositories.scan_job import ScanJobRepository
+from app.repositories.scan_result import ScanResultRepository
+from app.repositories.user import UserRepository
+from app.repositories.workflow_run import WorkflowRunRepository
 
 __all__ = [
-    "BaseRepository",
+    "AvailableRepositoryRepository",
+    "BuildSampleRepository",
+    "FailedScanRepository",
     "GithubInstallationRepository",
-    "OAuthIdentityRepository",
     "ImportedRepositoryRepository",
+    "OAuthIdentityRepository",
+    "ScanJobRepository",
+    "ScanResultRepository",
     "UserRepository",
+    "WorkflowRunRepository",
 ]

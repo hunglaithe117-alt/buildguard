@@ -167,6 +167,13 @@ def _config_path() -> Path:
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     raw = _load_yaml(_config_path())
+
+    if raw.get("paths") and not os.path.exists("/app"):
+        for key in ["uploads", "exports", "default_workdir"]:
+            val = raw["paths"].get(key)
+            if val and str(val).startswith("/app"):
+                raw["paths"][key] = str(val).replace("/app", str(Path.cwd()))
+
     return Settings(**raw)
 
 

@@ -16,14 +16,18 @@ from app.dtos import (
     RepoSearchResponse,
 )
 from datetime import datetime, timezone
-from app.infra.repositories import (
+from app.repositories import (
     AvailableRepositoryRepository,
     ImportedRepositoryRepository,
 )
-from app.infra import get_public_github_client, get_user_github_client
+from buildguard_common.github_wiring import (
+    get_public_github_client,
+    get_user_github_client,
+)
 from app.services.github.github_sync import sync_user_available_repos
-from app.infra.sonar import pipeline_client
+from app.services.sonar_producer import pipeline_client
 from buildguard_common.tasks import TASK_IMPORT_REPO
+from app.core.config import settings
 
 
 logger = logging.getLogger(__name__)
@@ -75,7 +79,9 @@ class RepositoryService:
             # If so, we need to fetch it and create the AvailableRepository record.
             if not available_repo:
                 try:
-                    with get_public_github_client() as gh:
+                    with get_public_github_client(
+                        tokens=settings.GITHUB_TOKENS, api_url=settings.GITHUB_API_URL
+                    ) as gh:
                         repo_data = gh.get_repository(payload.full_name)
 
                         # Create AvailableRepository record
@@ -197,7 +203,9 @@ class RepositoryService:
         # 2. Search public repos (GitHub API) - only if query is long enough
         if q and len(q) >= 3:
             try:
-                with get_user_github_client(self.db, user_id) as gh:
+                with get_user_github_client(
+                    db=self.db, user_id=user_id, api_url=settings.GITHUB_API_URL
+                ) as gh:
                     # Search for public repos matching the query
                     # We use 'in:name,description' and 'is:public' to narrow down
                     query = f"{q} in:name,description is:public"
@@ -324,7 +332,7 @@ class RepositoryService:
         if repo_user_id != current_user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to update this repository"
+                detail="You don't have permission to update this repository",
             )
 
         updated = self.repo_repo.update_repository(repo_id, {"sonar_metrics": metrics})

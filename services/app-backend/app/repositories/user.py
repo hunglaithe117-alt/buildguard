@@ -1,3 +1,25 @@
-"""Compatibility shim for UserRepository."""
+"""Repository for users (infra layer)."""
 
-from app.infra.repositories.user import UserRepository  # noqa: F401
+from typing import Optional
+
+from bson import ObjectId
+
+from app.domain.entities import User
+from buildguard_common.mongo import get_database
+from app.repositories.base import BaseRepository
+
+
+class UserRepository(BaseRepository[User]):
+    def __init__(self, db):
+        super().__init__(db, "users", User)
+        self.collection.create_index("username", unique=True)
+        self.collection.create_index("email", unique=True)
+
+    def find_by_username(self, username: str) -> Optional[User]:
+        return self.find_one({"username": username})
+
+    def find_by_email(self, email: str) -> Optional[User]:
+        return self.find_one({"email": email})
+
+
+__all__ = ["UserRepository"]

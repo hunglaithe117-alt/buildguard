@@ -10,7 +10,7 @@ from app.dtos.github import (
     GithubInstallationListResponse,
     GithubInstallationResponse,
 )
-from app.infra import get_user_github_client
+from buildguard_common.github_wiring import get_user_github_client
 
 
 class IntegrationService:
@@ -43,14 +43,12 @@ class IntegrationService:
 
     def sync_installations(self, user_id: str) -> GithubInstallationListResponse:
         # Get user's GitHub identity
-        identity = self.db.oauth_identities.find_one(
-            {"user_id": ObjectId(user_id), "provider": "github"}
+        client = get_user_github_client(
+            db=self.db, user_id=user_id, api_url=settings.GITHUB_API_URL
         )
 
-        if not identity or not identity.get("account_login"):
+        if not client:
             return GithubInstallationListResponse(installations=[])
-
-        github_login = identity.get("account_login")
 
         # Query installations for this account
         installations_cursor = self.db.github_installations.find(

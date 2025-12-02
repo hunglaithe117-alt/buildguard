@@ -9,5 +9,5 @@ dependencies = []
 members = [
   "services/app-backend",
   "services/pipeline-backend",
-  "packages/python-common",
+  "packages/buildguard_common",
 ]

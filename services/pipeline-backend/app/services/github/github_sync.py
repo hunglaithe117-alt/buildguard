@@ -5,7 +5,9 @@ from bson import ObjectId
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
-from app.services.github.github_client import get_app_github_client
+from buildguard_common.github_wiring import get_app_github_client
+from app.core.config import settings
+from app.core.redis import get_redis
 
 
 def sync_user_available_repos(db: Database, user_id: str) -> List[str]:
@@ -37,7 +39,14 @@ def sync_user_available_repos(db: Database, user_id: str) -> List[str]:
         for inst in installations:
             inst_id = inst["installation_id"]
             try:
-                with get_app_github_client(db, inst_id) as gh:
+                with get_app_github_client(
+                    db=db,
+                    installation_id=inst_id,
+                    app_id=settings.github.app_id,
+                    private_key=settings.github.private_key,
+                    api_url=settings.github.api_url,
+                    redis_client=get_redis(),
+                ) as gh:
                     resp = gh._rest_request(
                         "GET", "/installation/repositories", params={"per_page": 100}
                     )

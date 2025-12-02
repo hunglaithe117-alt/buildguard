@@ -5,11 +5,7 @@ from app.infra import (
     get_installation_token,
     clear_installation_token,
 )
-from .github_app import (
-    github_app_configured as _github_app_configured,  # backward compat
-    get_installation_token as _get_installation_token,
-    clear_installation_token as _clear_installation_token,
-)
+
 from .github_oauth import (
     verify_github_token,
     build_authorize_url,

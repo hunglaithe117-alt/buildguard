@@ -7,7 +7,7 @@ from pathlib import Path
 import time
 
 from app.celery_app import celery_app
-from app.services.github.github_client import get_app_github_client
+from buildguard_common.github_wiring import get_app_github_client
 from app.workers import PipelineTask
 from buildguard_common.tasks import (
     TASK_IMPORT_REPO,
@@ -25,16 +25,20 @@ LOG_DIR = Path("../repo-data/job_logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
+from app.core.config import settings
+from app.core.redis import get_redis
+
+
 @celery_app.task(
     bind=True,
     base=PipelineTask,
     name=TASK_IMPORT_REPO,
     queue="import_repo",
 )
-def import_repo(
+def import_repository(
     self: PipelineTask,
     user_id: str,
-    full_name: str,
+    repo_full_name: str,
     installation_id: str,
     provider: str = "github",
     test_frameworks: list[str] | None = None,
@@ -110,12 +114,21 @@ def import_repo(
 
         # Determine which client to use
         if installation_id:
-            client_context = get_app_github_client(self.db, installation_id)
+            client_context = get_app_github_client(
+                db=self.db,
+                installation_id=installation_id,
+                app_id=settings.github.app_id,
+                private_key=settings.github.private_key,
+                api_url=settings.github.api_url,
+                redis_client=get_redis(),
+            )
         else:
             # Public repo import using system tokens
-            from app.services.github.github_client import get_public_github_client
+            from buildguard_common.github_wiring import get_public_github_client
 
-            client_context = get_public_github_client()
+            client_context = get_public_github_client(
+                tokens=settings.github.tokens, api_url=settings.github.api_url
+            )
 
         with client_context as gh:
             # Try to get data from available_repo first to avoid re-fetching
@@ -309,11 +322,20 @@ def download_job_logs(self: PipelineTask, repo_id: str, run_id: int) -> Dict[str
     installation_id = repo.installation_id
 
     if installation_id:
-        client_context = get_app_github_client(self.db, installation_id)
+        client_context = get_app_github_client(
+            db=self.db,
+            installation_id=installation_id,
+            app_id=settings.github.app_id,
+            private_key=settings.github.private_key,
+            api_url=settings.github.api_url,
+            redis_client=get_redis(),
+        )
     else:
-        from app.services.github.github_client import get_public_github_client
+        from buildguard_common.github_wiring import get_public_github_client
 
-        client_context = get_public_github_client()
+        client_context = get_public_github_client(
+            tokens=settings.github.tokens, api_url=settings.github.api_url
+        )
 
     try:
         with client_context as gh:

@@ -1,18 +1,20 @@
+"""GitHub App authentication utilities."""
+
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-import time
+from typing import Any, Optional, Tuple
 
 import httpx
 from jose import jwt
 
-from app.config import settings
-from buildguard_common.github_exceptions import GithubConfigurationError
-from app.core.redis import get_redis
+from .github_exceptions import GithubConfigurationError
 
 
-def _load_private_key(raw: str) -> str:
+def load_private_key(raw: str) -> str:
+    """Load private key from string or file path."""
     if "BEGIN PRIVATE KEY" in raw:
         return raw.replace("\\n", "\n")
     path = Path(raw.strip().strip('"'))
@@ -23,32 +25,23 @@ def _load_private_key(raw: str) -> str:
     )
 
 
-def _require_app_config() -> tuple[str, str]:
-    app_id = settings.GITHUB_APP_ID
-    private_key = settings.GITHUB_APP_PRIVATE_KEY
-    if not app_id or not private_key:
-        raise GithubConfigurationError(
-            "GitHub App credentials are not configured. "
-            "Set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY."
-        )
-    return app_id, private_key
-
-
-def _generate_jwt(app_id: str, private_key: str) -> str:
+def generate_jwt(app_id: str, private_key: str) -> str:
+    """Generate a JWT for GitHub App authentication."""
     now = int(time.time())
     payload = {
         "iat": now - 60,
         "exp": now + 600,
         "iss": app_id,
     }
-    pem = _load_private_key(private_key)
+    pem = load_private_key(private_key)
     return jwt.encode(payload, pem, algorithm="RS256")
 
 
-def _request_installation_token(
-    jwt_token: str, installation_id: str
-) -> tuple[str, datetime]:
-    url = f"{settings.GITHUB_API_URL.rstrip('/')}/app/installations/{installation_id}/access_tokens"
+def request_installation_token(
+    jwt_token: str, installation_id: str, api_url: str = "https://api.github.com"
+) -> Tuple[str, datetime]:
+    """Request an installation access token from GitHub."""
+    url = f"{api_url.rstrip('/')}/app/installations/{installation_id}/access_tokens"
     headers = {
         "Authorization": f"Bearer {jwt_token}",
         "Accept": "application/vnd.github+json",
@@ -70,13 +63,32 @@ def _request_installation_token(
     return token, expires_at
 
 
-def get_installation_token(installation_id: str | None = None, db=None) -> str:
-    if installation_id is None:
+def get_installation_token(
+    app_id: str,
+    private_key: str,
+    installation_id: str,
+    redis_client: Any,
+    db: Any = None,
+    api_url: str = "https://api.github.com",
+) -> str:
+    """
+    Get an installation token, using Redis cache if available.
+
+    Args:
+        app_id: GitHub App ID
+        private_key: GitHub App Private Key
+        installation_id: Installation ID to get token for
+        redis_client: Redis client instance for caching
+        db: Optional MongoDB database to check installation status
+        api_url: GitHub API URL
+    """
+    if not installation_id:
         raise GithubConfigurationError(
             "Installation id is required to generate a GitHub App token"
         )
 
     if db is not None:
+        # Check if installation is valid in DB
         installation_doc = db.github_installations.find_one(
             {"installation_id": installation_id}
         )
@@ -93,31 +105,29 @@ def get_installation_token(installation_id: str | None = None, db=None) -> str:
                     f"GitHub App installation {installation_id} is suspended."
                 )
 
-    app_id, private_key = _require_app_config()
-
-    redis_client = get_redis()
     redis_key = f"github_installation_token:{installation_id}"
 
-    cached_token = redis_client.get(redis_key)
-    if cached_token:
-        return cached_token
+    if redis_client:
+        cached_token = redis_client.get(redis_key)
+        if cached_token:
+            # Redis returns bytes, decode if needed
+            if isinstance(cached_token, bytes):
+                return cached_token.decode("utf-8")
+            return cached_token
 
-    jwt_token = _generate_jwt(app_id, private_key)
-    token, expires_at = _request_installation_token(jwt_token, installation_id)
+    jwt_token = generate_jwt(app_id, private_key)
+    token, expires_at = request_installation_token(jwt_token, installation_id, api_url)
 
-    now = datetime.now(timezone.utc)
-    ttl = int((expires_at - now).total_seconds() - 60)
-    if ttl > 0:
-        redis_client.set(redis_key, token, ex=ttl)
+    if redis_client:
+        now = datetime.now(timezone.utc)
+        ttl = int((expires_at - now).total_seconds() - 60)
+        if ttl > 0:
+            redis_client.set(redis_key, token, ex=ttl)
 
     return token
 
 
-def clear_installation_token(installation_id: str) -> None:
+def clear_installation_token(installation_id: str, redis_client: Any) -> None:
     """Remove cached installation token when app is uninstalled or suspended."""
-    redis_client = get_redis()
-    redis_client.delete(f"github_installation_token:{installation_id}")
-
-
-def github_app_configured() -> bool:
-    return bool(settings.GITHUB_APP_ID and settings.GITHUB_APP_PRIVATE_KEY)
+    if redis_client:
+        redis_client.delete(f"github_installation_token:{installation_id}")

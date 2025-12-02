@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 # Mock dependencies
 sys.modules["celery"] = MagicMock()
 sys.modules["app.celery_app"] = MagicMock()
-sys.modules["app.services.github.github_app"] = MagicMock()
+sys.modules["buildguard_common.github_auth"] = MagicMock()
 
 from app.services.extracts.git_feature_extractor import GitFeatureExtractor
 

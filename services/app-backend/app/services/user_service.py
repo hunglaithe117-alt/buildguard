@@ -10,7 +10,7 @@ from pymongo.database import Database
 
 from app.dtos import UserResponse
 from app.domain.entities import OAuthIdentity, User
-from app.infra.repositories import OAuthIdentityRepository, UserRepository
+from app.repositories import OAuthIdentityRepository, UserRepository
 
 PROVIDER_GITHUB = "github"
 

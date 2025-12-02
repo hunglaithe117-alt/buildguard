@@ -8,13 +8,14 @@ from git import Repo
 from pymongo.database import Database
 
 from app.domain.entities import BuildSample
-from app.infra.repositories import BuildSampleRepository, ImportedRepositoryRepository
-from app.services.github.github_app import get_installation_token
+from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
+from buildguard_common.github_auth import get_installation_token
 from app.utils.locking import repo_lock
 
 logger = logging.getLogger(__name__)
 
 REPOS_DIR = Path("../repo-data/repos")
+
 
 class DiffService:
     def __init__(self, db: Database):
@@ -71,7 +72,9 @@ class DiffService:
             base_val = getattr(base, metric, 0) or 0
             head_val = getattr(head, metric, 0) or 0
             # Ensure they are numbers
-            if isinstance(base_val, (int, float)) and isinstance(head_val, (int, float)):
+            if isinstance(base_val, (int, float)) and isinstance(
+                head_val, (int, float)
+            ):
                 deltas[metric] = head_val - base_val
             else:
                 deltas[metric] = 0
@@ -86,7 +89,7 @@ class DiffService:
             return {}
 
         repo_path = REPOS_DIR / repo_id
-        
+
         base_sha = base.tr_original_commit
         head_sha = head.tr_original_commit
 
@@ -96,11 +99,11 @@ class DiffService:
         try:
             with repo_lock(repo_id):
                 if not repo_path.exists():
-                     # Should exist if builds were processed, but handle case
-                     return {}
-                
+                    # Should exist if builds were processed, but handle case
+                    return {}
+
                 git_repo = Repo(str(repo_path))
-                
+
                 # Ensure commits exist (fetch if needed)
                 # We assume they exist if builds were processed.
                 # If not, we might need to fetch.
@@ -110,7 +113,7 @@ class DiffService:
                 except Exception:
                     # Try fetch
                     self._fetch_repo(repo_path)
-                
+
                 # Get changed files
                 # git diff --name-status base head
                 diff_output = git_repo.git.diff("--name-status", base_sha, head_sha)
@@ -131,11 +134,9 @@ class DiffService:
                 for line in log_output.splitlines():
                     parts = line.split("|", 2)
                     if len(parts) == 3:
-                        commits.append({
-                            "sha": parts[0],
-                            "author": parts[1],
-                            "message": parts[2]
-                        })
+                        commits.append(
+                            {"sha": parts[0], "author": parts[1], "message": parts[2]}
+                        )
 
                 return {"files": files_changed, "commits": commits}
 
@@ -145,10 +146,7 @@ class DiffService:
 
     def _fetch_repo(self, repo_path: Path):
         subprocess.run(
-            ["git", "fetch", "origin"],
-            cwd=repo_path,
-            check=False,
-            capture_output=True
+            ["git", "fetch", "origin"], cwd=repo_path, check=False, capture_output=True
         )
 
     def _serialize_build(self, build: BuildSample) -> Dict[str, Any]:

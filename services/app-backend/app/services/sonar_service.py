@@ -7,7 +7,7 @@ from pymongo.database import Database
 
 from app.domain.entities import ScanJob, ScanJobStatus
 from app.domain.entities import FailedScan, ScanStatus
-from app.infra.repositories import (
+from app.repositories import (
     ScanJobRepository,
     ScanResultRepository,
     FailedScanRepository,
@@ -35,7 +35,7 @@ class SonarService:
         return repo.sonar_config if repo else None
 
     def trigger_scan(self, build_id: str) -> ScanJob:
-        from app.infra.sonar import sonar_producer
+        from app.services.sonar_producer import sonar_producer
 
         build = self.build_service.get_build_detail(build_id)
         if not build:
@@ -54,7 +54,6 @@ class SonarService:
         )
         created_job = self.scan_job_repo.create(job)
 
-        # Trigger Celery task
         # Trigger Celery task
         repo_doc = self.repo_repo.get(str(created_job.repo_id))
         if not repo_doc:

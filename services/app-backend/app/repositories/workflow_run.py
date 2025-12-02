@@ -1,3 +1,24 @@
-"""Compatibility shim for WorkflowRunRepository."""
+"""Repository for workflow runs (infra layer)."""
 
-from app.infra.repositories.workflow_run import WorkflowRunRepository  # noqa: F401
+from typing import Optional
+
+from bson import ObjectId
+
+from app.domain.entities import WorkflowRunRaw
+from buildguard_common.mongo import get_database
+from app.repositories.base import BaseRepository
+
+
+class WorkflowRunRepository(BaseRepository[WorkflowRunRaw]):
+    def __init__(self, db):
+        super().__init__(db, "workflow_runs", WorkflowRunRaw)
+
+    def find_by_repo_and_run_id(
+        self, repo_id: str | ObjectId, workflow_run_id: int
+    ) -> Optional[WorkflowRunRaw]:
+        return self.find_one(
+            {"repo_id": self._to_object_id(repo_id), "run_id": workflow_run_id}
+        )
+
+
+__all__ = ["WorkflowRunRepository"]

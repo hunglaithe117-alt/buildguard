@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pymongo.database import Database
 
 from app.api.deps import get_db
-from app.infra.repositories import BuildSampleRepository, ImportedRepositoryRepository
+from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
 
 router = APIRouter()
+
 
 @router.get("/check")
 def check_gate(
@@ -22,33 +23,35 @@ def check_gate(
     # Find build by repo_id and commit_sha
     # We assume tr_original_commit matches commit_sha
     # Since find_by_repo_and_run_id uses run_id, we need a new method or find_one
-    
+
     # We can use find_one with query
-    build = build_repo.collection.find_one({
-        "repo_id": build_repo._ensure_object_id(repo_id),
-        "tr_original_commit": commit_sha
-    })
-    
+    build = build_repo.collection.find_one(
+        {
+            "repo_id": build_repo._ensure_object_id(repo_id),
+            "tr_original_commit": commit_sha,
+        }
+    )
+
     if not build:
         return {
             "allowed": False,
             "reason": "Build analysis not found or pending",
-            "risk_factors": []
+            "risk_factors": [],
         }
-        
+
     # Convert to object to access fields easily if needed, or just use dict
     # build is a dict from pymongo
-    
+
     status = build.get("status")
     if status != "completed":
         return {
             "allowed": False,
             "reason": f"Build analysis status is {status}",
-            "risk_factors": []
+            "risk_factors": [],
         }
-        
+
     risk_factors = build.get("risk_factors", [])
-    
+
     # Check Shadow Mode
     repo_repo = ImportedRepositoryRepository(db)
     repo = repo_repo.find_by_id(repo_id)
@@ -56,18 +59,14 @@ def check_gate(
         return {
             "allowed": True,
             "reason": f"Shadow Mode enabled (Risk Factors: {len(risk_factors)})",
-            "risk_factors": risk_factors
+            "risk_factors": risk_factors,
         }
-    
+
     if risk_factors:
         return {
             "allowed": False,
             "reason": "High risk detected",
-            "risk_factors": risk_factors
+            "risk_factors": risk_factors,
         }
-        
-    return {
-        "allowed": True,
-        "reason": "No risks detected",
-        "risk_factors": []
-    }
+
+    return {"allowed": True, "reason": "No risks detected", "risk_factors": []}

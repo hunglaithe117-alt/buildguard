@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any, Tuple
 
 from pymongo import ASCENDING
 from app.config import settings
-from app.infra.mongo import get_database
+from buildguard_common.mongo import get_database
 
 logger = logging.getLogger(__name__)
 

@@ -8,6 +8,7 @@ from .base import BaseEntity, PyObjectId
 
 
 class ScanJobStatus(str, Enum):
+    CREATED = "created"
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"

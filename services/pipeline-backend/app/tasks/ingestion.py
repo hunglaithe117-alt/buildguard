@@ -69,6 +69,7 @@ def ingest_project(self, project_id: str) -> dict:
 
     queued = 0
     max_retries = project.get("max_retries", settings.pipeline.default_retry_limit)
+    auto_scan = project.get("auto_sonar_scan", True)
 
     for _, row in df_unique.iterrows():
         project_key = row["project_key"]
@@ -77,6 +78,12 @@ def ingest_project(self, project_id: str) -> dict:
         repo_url = row.get("repository_url") or None
         repo_url = normalize_repo_url(repo_url, repo_slug)
 
+        # If auto_scan is False, we create the job but don't queue it
+        # We use a new status 'created' (or just don't queue it if status defaults to pending)
+        # But we want to distinguish between "pending execution" and "waiting for manual trigger"
+        # So we use 'created' status for manual trigger ones.
+        initial_status = "pending" if auto_scan else "created"
+
         job_doc = scan_jobs_repo.create_scan_job(
             project_id=project_id,
             commit_sha=commit,
@@ -84,9 +91,17 @@ def ingest_project(self, project_id: str) -> dict:
             repo_slug=repo_slug,
             project_key=project_key,
             max_retries=max_retries,
+            status=initial_status,
         )
-        run_scan_job.delay(job_doc["id"])
-        queued += 1
 
-    logger.info("Queued %d scan jobs for project %s", queued, project_id)
+        if auto_scan:
+            run_scan_job.delay(job_doc["id"])
+            queued += 1
+
+    logger.info(
+        "Created scan jobs for project %s. Queued: %d (Auto-scan: %s)",
+        project_id,
+        queued,
+        auto_scan,
+    )
     return {"project_id": project_id, "queued": queued}

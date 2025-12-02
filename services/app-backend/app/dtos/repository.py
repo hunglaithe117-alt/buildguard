@@ -24,6 +24,9 @@ class RepoImportRequest(BaseModel):
     test_frameworks: Optional[List[str]] = Field(default=None)
     source_languages: Optional[List[str]] = Field(default=None)
     ci_provider: Optional[str] = Field(default=None)
+    auto_sonar_scan: bool = Field(
+        default=True, description="Automatically scan new commits with SonarQube"
+    )
 
 
 class RepoResponse(BaseModel):
@@ -46,6 +49,7 @@ class RepoResponse(BaseModel):
     notes: Optional[str] = None
     risk_thresholds: Optional[Dict[str, int]] = None
     shadow_mode: bool = False
+    auto_sonar_scan: bool = True
     sonar_metrics: Optional[List[str]] = None
 
     model_config = ConfigDict(
@@ -73,6 +77,7 @@ class RepoUpdateRequest(BaseModel):
     default_branch: Optional[str] = None
     notes: Optional[str] = None
     risk_thresholds: Optional[Dict[str, int]] = None
+    auto_sonar_scan: Optional[bool] = None
 
 
 class RepoSuggestion(BaseModel):

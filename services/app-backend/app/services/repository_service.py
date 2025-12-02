@@ -129,6 +129,7 @@ class RepositoryService:
                         "source_languages": payload.source_languages,
                         "ci_provider": payload.ci_provider,
                         "import_status": ImportStatus.QUEUED.value,
+                        "auto_sonar_scan": payload.auto_sonar_scan,
                     },
                 )
 
@@ -143,6 +144,7 @@ class RepositoryService:
                         "test_frameworks": payload.test_frameworks,
                         "source_languages": payload.source_languages,
                         "ci_provider": payload.ci_provider,
+                        "auto_sonar_scan": payload.auto_sonar_scan,
                     },
                     queue="import_repo",
                 )

@@ -80,3 +80,4 @@ class ImportedRepository(BaseEntity):
     # Risk Governance
     risk_thresholds: Dict[str, int] = {"high": 80, "medium": 50}
     shadow_mode: bool = False
+    auto_sonar_scan: bool = True

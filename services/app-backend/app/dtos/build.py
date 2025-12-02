@@ -22,6 +22,7 @@ class BuildSummary(BaseModel):
 
     # Workflow info
     workflow_run_id: int
+    sonar_scan_status: Optional[str] = None
 
     class Config:
         populate_by_name = True

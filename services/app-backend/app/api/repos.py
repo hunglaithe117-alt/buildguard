@@ -290,17 +290,6 @@ async def trigger_build_scan(
 
         raise HTTPException(status_code=500, detail=str(e))
 
-    from app.services.sonar_service import SonarService
-
-    service = SonarService(db)
-    try:
-        job = service.retry_job(job_id)
-        return {"status": "queued", "job_id": str(job.id)}
-    except ValueError as e:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail=str(e))
-
 
 @router.post("/sonar/jobs/{job_id}/retry")
 async def retry_scan_job(

@@ -62,6 +62,7 @@ export function ImportRepoModal({ isOpen, onClose, onImport }: ImportRepoModalPr
             test_frameworks: string[];
             source_languages: string[];
             ci_provider: string;
+            auto_sonar_scan: boolean;
         }>
     >({});
 
@@ -142,6 +143,7 @@ export function ImportRepoModal({ isOpen, onClose, onImport }: ImportRepoModalPr
                         test_frameworks: [],
                         source_languages: [],
                         ci_provider: CIProvider.GITHUB_ACTIONS,
+                        auto_sonar_scan: true,
                     },
                 }));
             }
@@ -166,6 +168,7 @@ export function ImportRepoModal({ isOpen, onClose, onImport }: ImportRepoModalPr
                     test_frameworks: config.test_frameworks,
                     source_languages: config.source_languages,
                     ci_provider: config.ci_provider,
+                    auto_sonar_scan: config.auto_sonar_scan,
                 };
             });
 
@@ -499,6 +502,7 @@ function RepoConfigItem({
         test_frameworks: string[];
         source_languages: string[];
         ci_provider: string;
+        auto_sonar_scan: boolean;
     };
     onChange: (config: any) => void;
 }) {
@@ -587,37 +591,57 @@ function RepoConfigItem({
                     </div>
                 </div>
 
-                <div>
-                    <label className="text-xs font-semibold text-muted-foreground uppercase mb-2 block">
-                        Source Languages
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {[SourceLanguage.PYTHON, SourceLanguage.RUBY, SourceLanguage.JAVA].map((lang) => (
-                            <label key={lang} className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="rounded border-gray-300"
-                                    checked={config.source_languages.includes(lang)}
-                                    onChange={() => toggleLanguage(lang)}
-                                />
-                                {lang}
-                            </label>
-                        ))}
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase mb-2 block">
+                            Source Languages
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {[SourceLanguage.PYTHON, SourceLanguage.RUBY, SourceLanguage.JAVA].map((lang) => (
+                                <label key={lang} className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300"
+                                        checked={config.source_languages.includes(lang)}
+                                        onChange={() => toggleLanguage(lang)}
+                                    />
+                                    {lang}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase mb-2 block">
+                            CI Provider
+                        </label>
+                        <select
+                            className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm"
+                            value={config.ci_provider}
+                            onChange={(e) => onChange({ ...config, ci_provider: e.target.value })}
+                        >
+                            <option value={CIProvider.GITHUB_ACTIONS}>GitHub Actions</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase mb-2 block">
+                            SonarQube Scanning
+                        </label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="rounded border-gray-300"
+                                checked={config.auto_sonar_scan}
+                                onChange={(e) => onChange({ ...config, auto_sonar_scan: e.target.checked })}
+                            />
+                            Auto-scan new commits
+                        </label>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            If disabled, you can manually trigger scans for individual commits later.
+                        </p>
                     </div>
                 </div>
-            </div>
-
-            <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase mb-2 block">
-                    CI Provider
-                </label>
-                <select
-                    className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm"
-                    value={config.ci_provider}
-                    onChange={(e) => onChange({ ...config, ci_provider: e.target.value })}
-                >
-                    <option value={CIProvider.GITHUB_ACTIONS}>GitHub Actions</option>
-                </select>
             </div>
         </div>
     );

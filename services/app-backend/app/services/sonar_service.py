@@ -59,15 +59,35 @@ class SonarService:
         )
         repo_id = str(repo_sample["repo_id"])
 
-        job = ScanJob(
-            repo_id=ObjectId(repo_id),
-            build_id=ObjectId(build_id),
-            commit_sha=build.commit_sha,
-            status=ScanJobStatus.PENDING,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        created_job = self.scan_job_repo.create(job)
+        # Check for existing job
+        existing_job = self.scan_job_repo.get_by_build_id(build_id)
+        if existing_job:
+            # If job exists, update it to PENDING and return it
+            # Unless it's already running/success, but user might want to re-trigger?
+            # The UI calls this "scan", implying start.
+            # If it was CREATED, we switch to PENDING.
+            # If it was FAILED, we switch to PENDING.
+            # If it was SUCCESS, maybe we shouldn't re-trigger here? But let's allow it for now or just return it.
+            # Actually, let's update it to PENDING to force a run.
+            self.scan_job_repo.update(
+                str(existing_job.id),
+                {
+                    "status": ScanJobStatus.PENDING,
+                    "updated_at": datetime.utcnow(),
+                    "error_message": None,
+                },
+            )
+            created_job = existing_job
+        else:
+            job = ScanJob(
+                repo_id=ObjectId(repo_id),
+                build_id=ObjectId(build_id),
+                commit_sha=build.commit_sha,
+                status=ScanJobStatus.PENDING,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            created_job = self.scan_job_repo.create(job)
 
         # Trigger Celery task
         repo_doc = self.repo_repo.get(str(created_job.repo_id))

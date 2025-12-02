@@ -312,6 +312,9 @@ export default function RepoBuildsPage() {
                                     <th className="px-6 py-3 text-left font-semibold text-slate-500">
                                         Extraction
                                     </th>
+                                    <th className="px-6 py-3 text-left font-semibold text-slate-500">
+                                        Sonar
+                                    </th>
                                     <th className="px-6 py-3" />
                                 </tr>
                             </thead>
@@ -319,7 +322,7 @@ export default function RepoBuildsPage() {
                                 {builds.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={8}
+                                            colSpan={10}
                                             className="px-6 py-6 text-center text-sm text-muted-foreground"
                                         >
                                             No builds recorded yet.
@@ -367,6 +370,41 @@ export default function RepoBuildsPage() {
                                                 <ExtractionStatusBadge status={build.extraction_status} />
                                             </td>
                                             <td className="px-6 py-4">
+                                                {!build.sonar_scan_status || build.sonar_scan_status === "created" ? (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-7 text-xs"
+                                                        onClick={(e) => handleScan(build.id, e)}
+                                                    >
+                                                        Scan
+                                                    </Button>
+                                                ) : build.sonar_scan_status === "pending" || build.sonar_scan_status === "running" ? (
+                                                    <Badge variant="secondary" className="gap-1">
+                                                        <Loader2 className="h-3 w-3 animate-spin" /> Scanning
+                                                    </Badge>
+                                                ) : build.sonar_scan_status === "success" || build.sonar_scan_status === "completed" ? (
+                                                    <Badge variant="outline" className="border-green-500 text-green-600 gap-1">
+                                                        <CheckCircle2 className="h-3 w-3" /> Done
+                                                    </Badge>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant="destructive" className="gap-1">
+                                                            <XCircle className="h-3 w-3" /> Failed
+                                                        </Badge>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-7 w-7 p-0"
+                                                            title="Retry Scan"
+                                                            onClick={(e) => handleScan(build.id, e)}
+                                                        >
+                                                            <RefreshCw className="h-3 w-3" />
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
                                                 <Button
                                                     size="sm"
                                                     variant="ghost"
@@ -376,14 +414,6 @@ export default function RepoBuildsPage() {
                                                     }}
                                                 >
                                                     View
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="ml-2"
-                                                    onClick={(e) => handleScan(build.id, e)}
-                                                >
-                                                    Scan
                                                 </Button>
                                             </td>
                                         </tr>

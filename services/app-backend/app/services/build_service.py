@@ -56,9 +56,22 @@ class BuildService:
             w["workflow_run_id"]: WorkflowRunRaw(**w) for w in workflow_runs_cursor
         }
 
+        # Fetch scan jobs
+        commit_shas = [
+            b.tr_original_commit for b in build_samples if b.tr_original_commit
+        ]
+        scan_jobs_cursor = self.db[CollectionName.SCAN_JOBS.value].find(
+            {"project_id": repo_id, "commit_sha": {"$in": commit_shas}}
+        )
+        scan_jobs = {job["commit_sha"]: job for job in scan_jobs_cursor}
+
         items = []
         for sample in build_samples:
             workflow = workflow_runs.get(sample.workflow_run_id)
+            commit_sha = sample.tr_original_commit or (
+                workflow.head_sha if workflow else ""
+            )
+            scan_job = scan_jobs.get(commit_sha)
 
             items.append(
                 BuildSummary(
@@ -66,13 +79,13 @@ class BuildService:
                     build_number=sample.tr_build_number or 0,
                     status=sample.tr_status or "unknown",
                     extraction_status=sample.status,
-                    commit_sha=sample.tr_original_commit
-                    or (workflow.head_sha if workflow else ""),
+                    commit_sha=commit_sha,
                     created_at=workflow.created_at if workflow else None,
                     duration=sample.tr_duration,
                     num_jobs=sample.tr_log_num_jobs,
                     num_tests=sample.tr_log_tests_run_sum,
                     workflow_run_id=sample.workflow_run_id,
+                    sonar_scan_status=scan_job["status"] if scan_job else None,
                 )
             )
 

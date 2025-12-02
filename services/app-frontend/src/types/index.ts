@@ -42,6 +42,7 @@ export interface Build {
   workflow_run_id: number;
   error_message?: string;
   is_missing_commit?: boolean;
+  sonar_scan_status?: string;
 }
 
 export interface BuildDetail extends Build {
@@ -134,6 +135,7 @@ export interface RepoDetail extends RepositoryRecord {
   metadata?: Record<string, any>;
   risk_thresholds?: { high: number; medium: number };
   shadow_mode?: boolean;
+  auto_sonar_scan?: boolean;
 }
 
 export enum ScanJobStatus {
@@ -223,6 +225,7 @@ export interface RepoImportPayload {
   test_frameworks?: string[];
   source_languages?: string[];
   ci_provider?: string;
+  auto_sonar_scan?: boolean;
 }
 
 export interface RepoUpdatePayload {
@@ -233,6 +236,7 @@ export interface RepoUpdatePayload {
   notes?: string;
   risk_thresholds?: { high: number; medium: number };
   shadow_mode?: boolean;
+  auto_sonar_scan?: boolean;
 }
 
 export interface DashboardSummaryResponse {

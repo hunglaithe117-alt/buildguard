@@ -308,3 +308,29 @@ class RepositoryService:
         )
 
         return {"status": "queued"}
+
+    def update_repository_metrics(
+        self, repo_id: str, metrics: List[str], current_user: dict
+    ) -> RepoDetailResponse:
+        repo_doc = self.repo_repo.get_repository(repo_id)
+        if not repo_doc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+            )
+
+        # Verify user owns this repository
+        repo_user_id = str(repo_doc.user_id)
+        current_user_id = str(current_user["_id"])
+        if repo_user_id != current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this repository"
+            )
+
+        updated = self.repo_repo.update_repository(repo_id, {"sonar_metrics": metrics})
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found"
+            )
+
+        return _serialize_repo_detail(updated)

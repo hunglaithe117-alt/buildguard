@@ -11,6 +11,7 @@ from app.dtos import (
     RepoResponse,
     RepoSuggestionListResponse,
     RepoSearchResponse,
+    RepoMetricsUpdateRequest,
     RepoUpdateRequest,
 )
 from app.dtos.build import BuildListResponse, BuildDetail
@@ -188,6 +189,7 @@ def trigger_build_rescan(
         return {"status": "queued"}
     except ValueError as e:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail=str(e))
 
 
@@ -202,15 +204,16 @@ def submit_build_feedback(
     """Submit feedback for a build risk assessment."""
     service = BuildService(db)
     user_id = str(current_user["_id"])
-    
+
     is_false_positive = payload.get("is_false_positive", False)
     reason = payload.get("reason", "")
-    
+
     try:
         service.submit_feedback(build_id, user_id, is_false_positive, reason)
         return {"status": "success"}
     except ValueError as e:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail=str(e))
 
 
@@ -379,3 +382,26 @@ async def retry_failed_scan(
         return {"status": "queued", "job_id": str(result.id)}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+@router.put("/{repo_id}/metrics", response_model=RepoDetailResponse)
+def update_repository_metrics(
+    repo_id: str,
+    payload: RepoMetricsUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Database = Depends(get_db),
+):
+    """Update SonarQube metrics configuration for a repository."""
+    service = RepositoryService(db)
+    return service.update_repository_metrics(repo_id, payload.metrics, current_user)
+
+
+@router.get("/{repo_id}/metrics", response_model=List[str])
+def get_repository_metrics(
+    repo_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Database = Depends(get_db),
+):
+    """Get current SonarQube metrics configuration for a repository."""
+    service = RepositoryService(db)
+    repo = service.get_repository_detail(repo_id, current_user)
+    return repo.sonar_metrics or []

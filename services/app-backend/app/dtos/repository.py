@@ -44,6 +44,7 @@ class RepoResponse(BaseModel):
     notes: Optional[str] = None
     risk_thresholds: Optional[Dict[str, int]] = None
     shadow_mode: bool = False
+    sonar_metrics: Optional[List[str]] = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,3 +90,7 @@ class RepoSuggestionListResponse(BaseModel):
 class RepoSearchResponse(BaseModel):
     private_matches: List[RepoSuggestion]
     public_matches: List[RepoSuggestion]
+
+
+class RepoMetricsUpdateRequest(BaseModel):
+    metrics: List[str]

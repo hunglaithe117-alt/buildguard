@@ -521,9 +521,12 @@ class MetricsExporter:
             writer.writerow(row)
         return measures
 
-    def collect_metrics(self, component_key: str) -> Dict[str, str]:
+    def collect_metrics(
+        self, component_key: str, metrics: Optional[List[str]] = None
+    ) -> Dict[str, str]:
         """Return the latest metrics for a Sonar component without writing to disk."""
-        return self._fetch_measures(component_key, self.metrics)
+        metrics_to_fetch = metrics or self.metrics
+        return self._fetch_measures(component_key, metrics_to_fetch)
 
 
 def get_runner_for_instance(

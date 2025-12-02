@@ -95,3 +95,8 @@ async def sonar_webhook(
         f"Queued metrics export for component {component_key}, job {scan_job['_id']}"
     )
     return {"received": True, "component_key": component_key}
+
+@router.get("/metrics", response_model=List[str])
+def list_available_metrics():
+    """List all available SonarQube metrics that can be tracked."""
+    return settings.sonarqube.measures.keys

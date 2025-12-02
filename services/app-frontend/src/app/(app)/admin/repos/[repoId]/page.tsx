@@ -18,6 +18,7 @@ import { SonarConfigEditor } from "@/components/sonar/sonar-config-editor";
 import { ScanJobsTable } from "@/components/sonar/scan-jobs-table";
 import { FailedScansTable } from "@/components/sonar/failed-scans-table";
 import { ScanMetricsTable } from "@/components/sonar/scan-metrics-table";
+import { SonarMetricsSelector } from "@/components/sonar/sonar-metrics-selector";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
@@ -135,6 +136,18 @@ export default function RepoDetailPage() {
                         </CardHeader>
                         <CardContent>
                             <SonarConfigEditor repoId={repoId} />
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Metrics Configuration</CardTitle>
+                            <CardDescription>
+                                Customize which SonarQube metrics are collected for this repository.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <SonarMetricsSelector repoId={repoId} />
                         </CardContent>
                     </Card>
 

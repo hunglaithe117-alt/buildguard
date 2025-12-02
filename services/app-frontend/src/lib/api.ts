@@ -216,6 +216,17 @@ export const reposApi = {
     });
     return res.data;
   },
+  getMetrics: async (repoId: string) => {
+    const response = await api.get<string[]>(`/repos/${repoId}/metrics`);
+    return response.data;
+  },
+  updateMetrics: async (repoId: string, metrics: string[]) => {
+    const response = await api.put<{ metrics: string[] }>(
+      `/repos/${repoId}/metrics`,
+      { metrics }
+    );
+    return response.data;
+  },
 };
 
 export const sonarApi = {
@@ -268,6 +279,10 @@ export const sonarApi = {
     const response = await api.post<{ status: string; job_id: string }>(
       `/repos/sonar/failed/${failedScanId}/retry`
     );
+    return response.data;
+  },
+  getAvailableMetrics: async () => {
+    const response = await api.get<string[]>("/sonar/metrics");
     return response.data;
   },
 };

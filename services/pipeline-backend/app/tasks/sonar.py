@@ -256,7 +256,10 @@ def export_metrics(
 
     instance = settings.sonarqube.get_instance(job.get("sonar_instance"))
     exporter = MetricsExporter.from_instance(instance)
-    metrics = exporter.collect_metrics(component_key)
+
+    # Use project-specific metrics if defined, otherwise use default
+    custom_metrics = project.get("sonar_metrics")
+    metrics = exporter.collect_metrics(component_key, metrics=custom_metrics)
     if not metrics:
         raise RuntimeError(f"No metrics available for {component_key}")
 

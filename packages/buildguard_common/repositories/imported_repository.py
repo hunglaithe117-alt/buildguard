@@ -1,7 +1,7 @@
 """Repository for imported repositories (infra layer)."""
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from bson import ObjectId
 
@@ -9,12 +9,14 @@ from buildguard_common.models.imported_repository import (
     ImportedRepository,
     ImportStatus,
 )
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class ImportedRepositoryRepository(BaseRepository[ImportedRepository]):
     def __init__(self, db):
-        super().__init__(db, "imported_repositories", ImportedRepository)
+        # Keep collection name aligned with app usage (`db.repositories`) so all
+        # services read/write the same documents.
+        super().__init__(db, CollectionName.REPOSITORIES, ImportedRepository)
         self.collection.create_index([("user_id", 1), ("full_name", 1)], unique=True)
 
     def get(self, repo_id: str | ObjectId) -> Optional[ImportedRepository]:
@@ -53,12 +55,30 @@ class ImportedRepositoryRepository(BaseRepository[ImportedRepository]):
         return self.get(repo_id)
 
     def list_by_user(
-        self, user_id: str | ObjectId, status: Optional[ImportStatus] = None
-    ) -> List[ImportedRepository]:
-        query: Dict[str, Any] = {"user_id": self._to_object_id(user_id)}
+        self,
+        user_id: str | ObjectId,
+        status: Optional[ImportStatus] = None,
+        skip: int = 0,
+        limit: Optional[int] = None,
+        query: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[List[ImportedRepository], int]:
+        """
+        List repositories for a user with optional status filter and pagination.
+        Returns (items, total) for UI pagination.
+        """
+        filters: Dict[str, Any] = {"user_id": self._to_object_id(user_id)}
         if status:
-            query["import_status"] = status
-        return self.find_many(query, sort=[("created_at", -1)])
+            filters["import_status"] = (
+                status.value if isinstance(status, ImportStatus) else status
+            )
+        if query:
+            filters.update(query)
+
+        total = self.collection.count_documents(filters)
+        items = self.find_many(
+            filters, sort=[("created_at", -1)], skip=skip, limit=limit
+        )
+        return items, total
 
     def find_by_installation(self, installation_id: str) -> List[ImportedRepository]:
         return self.find_many({"installation_id": installation_id})

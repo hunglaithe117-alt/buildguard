@@ -7,12 +7,12 @@ from typing import Any, Dict, Optional
 from bson import ObjectId
 
 from buildguard_common.models.build_sample import BuildSample
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class BuildSampleRepository(BaseRepository[BuildSample]):
     def __init__(self, db):
-        super().__init__(db, "build_samples", BuildSample)
+        super().__init__(db, CollectionName.BUILD_SAMPLES, BuildSample)
 
     def find_by_repo_and_run_id(
         self, repo_id: str | ObjectId, workflow_run_id: int

@@ -17,6 +17,7 @@ from buildguard_common.tasks import (
 from app.services.github.exceptions import GithubRateLimitError
 from app.repositories import ImportedRepositoryRepository, WorkflowRunRepository
 from app.domain.entities import WorkflowRunRaw
+from buildguard_common.repositories.base import CollectionName
 
 
 logger = logging.getLogger(__name__)
@@ -132,7 +133,7 @@ def import_repository(
 
         with client_context as gh:
             # Try to get data from available_repo first to avoid re-fetching
-            available_repo = self.db.available_repositories.find_one(
+            available_repo = self.db[CollectionName.AVAILABLE_REPOSITORIES.value].find_one(
                 {"user_id": ObjectId(user_id), "full_name": full_name}
             )
 
@@ -160,7 +161,7 @@ def import_repository(
                 },
             )
 
-            self.db.available_repositories.update_one(
+            self.db[CollectionName.AVAILABLE_REPOSITORIES.value].update_one(
                 {"user_id": ObjectId(user_id), "full_name": full_name},
                 {"$set": {"imported": True}},
             )

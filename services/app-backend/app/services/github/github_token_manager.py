@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from pymongo.database import Database
 
 from app.config import settings
+from buildguard_common.repositories.base import CollectionName
 
 GITHUB_USER_URL = "https://api.github.com/user"
 
@@ -44,7 +45,9 @@ async def verify_github_token(access_token: str) -> bool:
 async def check_github_token_status(
     db: Database, user_id: ObjectId, verify_with_api: bool = False
 ) -> Tuple[str, Optional[dict]]:
-    identity = db.oauth_identities.find_one({"user_id": user_id, "provider": "github"})
+    identity = db[CollectionName.OAUTH_IDENTITIES.value].find_one(
+        {"user_id": user_id, "provider": "github"}
+    )
 
     if not identity:
         return GitHubTokenStatus.MISSING, None
@@ -106,7 +109,7 @@ async def get_valid_github_token(
 async def mark_github_token_invalid(
     db: Database, identity_id: ObjectId, reason: str = "invalid"
 ) -> None:
-    db.oauth_identities.update_one(
+    db[CollectionName.OAUTH_IDENTITIES.value].update_one(
         {"_id": identity_id},
         {
             "$set": {
@@ -122,7 +125,9 @@ async def mark_github_token_invalid(
 async def refresh_github_token_if_needed(
     db: Database, user_id: ObjectId
 ) -> Optional[str]:
-    identity = db.oauth_identities.find_one({"user_id": user_id, "provider": "github"})
+    identity = db[CollectionName.OAUTH_IDENTITIES.value].find_one(
+        {"user_id": user_id, "provider": "github"}
+    )
 
     if not identity:
         return None
@@ -169,7 +174,7 @@ async def refresh_github_token_if_needed(
                 )
 
             # Update token in database
-            db.oauth_identities.update_one(
+            db[CollectionName.OAUTH_IDENTITIES.value].update_one(
                 {"_id": identity["_id"]},
                 {
                     "$set": {

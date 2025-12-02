@@ -6,12 +6,12 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 
 from buildguard_common.models.available_repository import AvailableRepository
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class AvailableRepositoryRepository(BaseRepository[AvailableRepository]):
     def __init__(self, db):
-        super().__init__(db, "available_repositories", AvailableRepository)
+        super().__init__(db, CollectionName.AVAILABLE_REPOSITORIES, AvailableRepository)
         self.collection.create_index([("user_id", 1), ("full_name", 1)], unique=True)
 
     def list_by_user(

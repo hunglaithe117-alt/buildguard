@@ -3,10 +3,14 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pymongo.database import Database
 
-from app.api.deps import get_db, get_current_user
+from app.database.mongo import get_db
+from app.middleware.auth import (
+    get_current_user,
+)
 from app.services.diff_service import DiffService
 
 router = APIRouter()
+
 
 @router.get("/{repo_id}/compare")
 def compare_builds(

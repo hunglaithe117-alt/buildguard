@@ -8,9 +8,12 @@ from celery.utils.log import get_task_logger
 
 from app.celery_app import celery_app
 from app.core.config import settings
-from app.models import ProjectStatus, ScanJobStatus
+
+# from app.models import ProjectStatus, ScanJobStatus
+
 from app.repositories import (
     ProjectsRepository,
+    RepositoryScanRepository,
     ScanJobsRepository,
     FailedCommitsRepository,
     ScanResultsRepository,
@@ -45,18 +48,18 @@ def _safe_int(value: Optional[str | int]) -> int:
 
 
 def _check_project_completion(project_id: str) -> None:
-    repo = ProjectsRepository(_get_db())
-    project = repo.get_project(project_id)
-    if not project:
+    repo = RepositoryScanRepository(_get_db())
+    scan = repo.get_by_project_id(project_id)
+    if not scan:
         return
-    total_commits = _safe_int(project.get("total_commits"))
+    total_commits = _safe_int(scan.total_commits)
     if not total_commits:
         return
-    completed = (project.get("processed_commits") or 0) + (
-        project.get("failed_commits") or 0
-    )
+    completed = (scan.processed_commits or 0) + (scan.failed_commits or 0)
     if completed >= total_commits:
-        repo.update_project(project_id, status=ProjectStatus.finished.value)
+        repo.update_scan(
+            scan.id, status="success"
+        )  # Or finished? Using success for now based on previous logic
 
 
 def _record_failed_commit(
@@ -68,7 +71,7 @@ def _record_failed_commit(
 ) -> None:
     db = _get_db()
     failed_commits_repo = FailedCommitsRepository(db)
-    projects_repo = ProjectsRepository(db)
+    scan_repo = RepositoryScanRepository(db)
 
     project_id = (project or {}).get("id") or job.get("project_id")
     project_key = (project or {}).get("project_key") or job.get("project_key")
@@ -99,7 +102,10 @@ def _record_failed_commit(
         )
 
     if should_increment and project:
-        projects_repo.update_project(project["id"], failed_delta=1)
+        # We need to find the scan for this project to update failed_commits count
+        scan = scan_repo.get_by_project_id(project["id"])
+        if scan:
+            scan_repo.update_scan(scan.id, failed_delta=1)
 
 
 def _handle_scan_failure(
@@ -170,6 +176,7 @@ def run_scan_job(self, scan_job_id: str) -> str:
     db = _get_db()
     scan_jobs_repo = ScanJobsRepository(db)
     projects_repo = ProjectsRepository(db)
+    scan_repo = RepositoryScanRepository(db)
 
     job = scan_jobs_repo.get_scan_job(scan_job_id)
     if not job:
@@ -275,8 +282,10 @@ def run_scan_job(self, scan_job_id: str) -> str:
         return job["id"]
 
     repo_url = normalize_repo_url(job.get("repository_url"), job.get("repo_slug"))
-    sonar_config = (project.get("sonar_config") or {}).get("file_path")
-    project_key = job.get("project_key") or project.get("project_key")
+
+    scan = scan_repo.get_by_project_id(project["id"])
+    sonar_config = scan.sonar_config if scan else None
+    project_key = job.get("project_key") or (scan.sonar_project_key if scan else None)
     runner = get_runner_for_instance(project_key)
     scan_jobs_repo.update_scan_job(
         job["id"],
@@ -344,6 +353,7 @@ def export_metrics(
     db = _get_db()
     scan_jobs_repo = ScanJobsRepository(db)
     projects_repo = ProjectsRepository(db)
+    scan_repo = RepositoryScanRepository(db)
     scan_results_repo = ScanResultsRepository(db)
     failed_commits_repo = FailedCommitsRepository(db)
     build_samples_repo = BuildSamplesRepository(db)
@@ -359,7 +369,8 @@ def export_metrics(
     exporter = MetricsExporter.from_instance(instance)
 
     # Use project-specific metrics if defined, otherwise use default
-    custom_metrics = project.get("sonar_metrics")
+    scan = scan_repo.get_by_project_id(project_id)
+    custom_metrics = scan.metrics if scan else None
     metrics = exporter.collect_metrics(component_key, metrics=custom_metrics)
     if not metrics:
         raise RuntimeError(f"No metrics available for {component_key}")
@@ -393,7 +404,9 @@ def export_metrics(
                     counted=False,
                 )
                 update_kwargs["failed_delta"] = -1
-            projects_repo.update_project(project_id, **update_kwargs)
+
+            if scan:
+                scan_repo.update_scan(scan.id, **update_kwargs)
     _check_project_completion(project_id)
     logger.info(
         "Stored metrics for component %s (job=%s, project=%s)",

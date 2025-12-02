@@ -13,6 +13,7 @@ from pymongo.database import Database
 from app.config import settings
 from app.domain.entities import OAuthIdentity
 from app.services.user_service import upsert_github_identity
+from buildguard_common.repositories.base import CollectionName
 
 GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
@@ -68,7 +69,7 @@ def create_oauth_state(db: Database, redirect_url: Optional[str] = None) -> dict
         "used": False,
         "used_at": None,
     }
-    db.github_states.insert_one(document)
+    db[CollectionName.GITHUB_STATES.value].insert_one(document)
     return document
 
 
@@ -77,7 +78,9 @@ async def exchange_code_for_token(
 ) -> Tuple[OAuthIdentity, Optional[str]]:
     _require_github_credentials()
 
-    oauth_state = db.github_states.find_one({"state": state, "used": False})
+    oauth_state = db[CollectionName.GITHUB_STATES.value].find_one(
+        {"state": state, "used": False}
+    )
     if not oauth_state:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -177,7 +180,7 @@ async def exchange_code_for_token(
         account_avatar_url=user_data.get("avatar_url"),
         connected_at=datetime.now(timezone.utc),
     )
-    db.github_states.update_one(
+    db[CollectionName.GITHUB_STATES.value].update_one(
         {"state": state},
         {"$set": {"used": True, "used_at": datetime.now(timezone.utc)}},
     )

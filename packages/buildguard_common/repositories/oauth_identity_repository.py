@@ -6,12 +6,12 @@ from bson import ObjectId
 
 from buildguard_common.models.oauth_identity import OAuthIdentity
 from buildguard_common.models.user import User
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class OAuthIdentityRepository(BaseRepository[OAuthIdentity]):
     def __init__(self, db):
-        super().__init__(db, "oauth_identities", OAuthIdentity)
+        super().__init__(db, CollectionName.OAUTH_IDENTITIES, OAuthIdentity)
 
     def find_by_user_and_provider(
         self, user_id: str | ObjectId, provider: str

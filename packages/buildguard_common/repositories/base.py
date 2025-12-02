@@ -1,7 +1,9 @@
 """Base repository providing common MongoDB CRUD helpers."""
 
 from abc import ABC
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from enum import Enum
+from types import SimpleNamespace
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -9,15 +11,42 @@ from pydantic import BaseModel
 from pymongo.collection import Collection
 from pymongo.database import Database
 
+
+class CollectionName(str, Enum):
+    AVAILABLE_REPOSITORIES = "available_repositories"
+    REPOSITORIES = "repositories"
+    IMPORTED_REPOSITORIES = "imported_repositories"  # legacy name
+    USERS = "users"
+    OAUTH_IDENTITIES = "oauth_identities"
+    GITHUB_INSTALLATIONS = "github_installations"
+    GITHUB_PUBLIC_TOKENS = "github_public_tokens"
+    GITHUB_STATES = "github_states"
+    BUILD_SAMPLES = "build_samples"
+    WORKFLOW_RUNS = "workflow_runs"
+    SCAN_JOBS = "scan_jobs"
+    SCAN_RESULTS = "scan_results"
+    FAILED_SCANS = "failed_scans"
+    REPOSITORY_SCANS = "repository_scans"
+    FAILED_COMMITS = "failed_commits"
+    PROJECTS = "projects"
+
+
 T = TypeVar("T", bound=BaseModel)
 
 
 class BaseRepository(ABC, Generic[T]):
     """Base repository providing common CRUD operations for MongoDB collections."""
 
-    def __init__(self, db: Database, collection_name: str, model_class: Type[T]):
+    def __init__(
+        self, db: Database, collection_name: CollectionName | str, model_class: Type[T]
+    ):
         self.db = db
-        self.collection: Collection = db[collection_name]
+        self.collection_name: str = (
+            collection_name.value
+            if isinstance(collection_name, CollectionName)
+            else collection_name
+        )
+        self.collection: Collection = db[self.collection_name]
         self.model_class = model_class
 
     def find_by_id(self, entity_id: str | ObjectId) -> Optional[T]:
@@ -88,3 +117,36 @@ class BaseRepository(ABC, Generic[T]):
             return ObjectId(entity_id)
         except (InvalidId, TypeError):
             return None
+
+
+class MongoRepositoryBase:
+    """
+    Lightweight base used by legacy pipeline repositories that work directly
+    with collection names rather than Pydantic models.
+    """
+
+    def __init__(self, db: Database, collections: Any | None = None):
+        self.db = db
+        default = {
+            "projects_collection": CollectionName.REPOSITORIES.value,
+            "scan_jobs_collection": CollectionName.SCAN_JOBS.value,
+            "scan_results_collection": CollectionName.SCAN_RESULTS.value,
+            "failed_commits_collection": CollectionName.FAILED_COMMITS.value,
+            "build_samples_collection": CollectionName.BUILD_SAMPLES.value,
+        }
+        if collections:
+            if hasattr(collections, "model_dump"):
+                default.update(collections.model_dump())
+            elif isinstance(collections, dict):
+                default.update(collections)
+            else:
+                default.update(vars(collections))
+        self.collections = SimpleNamespace(**default)
+
+    def _serialize(self, doc: Dict[str, Any]) -> Dict[str, Any]:
+        if not doc:
+            return {}
+        data = dict(doc)
+        if "_id" in data:
+            data["id"] = str(data.pop("_id"))
+        return data

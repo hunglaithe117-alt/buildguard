@@ -9,8 +9,10 @@ from fastapi import HTTPException, status
 from pymongo.database import Database
 
 from app.dtos import UserResponse
-from app.domain.entities import OAuthIdentity, User
+from buildguard_common.models.oauth_identity import OAuthIdentity
+from buildguard_common.models.user import User
 from app.repositories import OAuthIdentityRepository, UserRepository
+from buildguard_common.repositories.base import CollectionName
 
 PROVIDER_GITHUB = "github"
 
@@ -59,14 +61,18 @@ class UserService:
 
     def get_current_user(self) -> UserResponse:
         # Find an OAuth identity for GitHub and use the linked user document.
-        identity = self.db.oauth_identities.find_one({"provider": PROVIDER_GITHUB})
+        identity = self.db[CollectionName.OAUTH_IDENTITIES.value].find_one(
+            {"provider": PROVIDER_GITHUB}
+        )
         if not identity:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No user is currently logged in.",
             )
 
-        user_doc = self.db.users.find_one({"_id": identity["user_id"]})
+        user_doc = self.db[CollectionName.USERS.value].find_one(
+            {"_id": identity["user_id"]}
+        )
 
         if user_doc is None:
             raise HTTPException(

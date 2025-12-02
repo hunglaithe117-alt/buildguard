@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
-from typing import List, Optional
-from app.domain.entities import BuildSample
-from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
+from typing import List
+from buildguard_common.models import BuildSample
+from app.repositories import WorkflowRunRepository
 from pymongo.database import Database
 import logging
+from buildguard_common.repositories.base import CollectionName
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class HeuristicEngine:
         # We need to ensure we have history. If we just imported, we might not have full history.
         # But assuming we have imported history.
 
-        first_run = self.db.workflow_runs.find_one(
+        first_run = self.db[CollectionName.WORKFLOW_RUNS.value].find_one(
             {"repo_id": build.repo_id, "raw_payload.triggering_actor.login": login},
             sort=[("created_at", 1)],
         )

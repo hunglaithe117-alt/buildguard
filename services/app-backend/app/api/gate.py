@@ -1,9 +1,9 @@
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pymongo.database import Database
 
-from app.api.deps import get_db
+from app.database.mongo import get_db
 from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
 
 router = APIRouter()

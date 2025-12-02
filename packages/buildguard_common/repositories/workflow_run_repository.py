@@ -5,12 +5,12 @@ from typing import Optional
 from bson import ObjectId
 
 from buildguard_common.models.workflow_run import WorkflowRunRaw
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class WorkflowRunRepository(BaseRepository[WorkflowRunRaw]):
     def __init__(self, db):
-        super().__init__(db, "workflow_runs", WorkflowRunRaw)
+        super().__init__(db, CollectionName.WORKFLOW_RUNS, WorkflowRunRaw)
 
     def find_by_repo_and_run_id(
         self, repo_id: str | ObjectId, workflow_run_id: int

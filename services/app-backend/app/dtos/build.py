@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-from app.domain.entities import PyObjectId
+from buildguard_common.models.base import PyObjectIdStr
 
 
 class BuildSummary(BaseModel):

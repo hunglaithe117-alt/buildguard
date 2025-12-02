@@ -17,8 +17,9 @@ from app.api import (
     logs,
     sonar,
     tokens,
+    compare,
+    gate,
 )
-from app.api.endpoints import compare, gate
 from app.middleware.request_logging import RequestLoggingMiddleware
 
 from app.core.logging import setup_logging

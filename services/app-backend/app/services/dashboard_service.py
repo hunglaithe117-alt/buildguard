@@ -4,13 +4,14 @@ from typing import Dict, Any
 from pymongo.database import Database
 
 from app.dtos import DashboardSummaryResponse, DashboardMetrics, RepoDistributionEntry
+from buildguard_common.repositories.base import CollectionName
 
 
 class DashboardService:
     def __init__(self, db: Database):
         self.db = db
-        self.build_collection = db["build_samples"]
-        self.repo_collection = db["repositories"]
+        self.build_collection = db[CollectionName.BUILD_SAMPLES.value]
+        self.repo_collection = db[CollectionName.REPOSITORIES.value]
 
     def get_summary(self) -> DashboardSummaryResponse:
         # 1. Calculate total builds (last 14 days)

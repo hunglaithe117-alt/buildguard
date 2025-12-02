@@ -9,12 +9,12 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 
 from buildguard_common.models.scan_job import ScanJob, ScanJobStatus
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class ScanJobRepository(BaseRepository[ScanJob]):
     def __init__(self, db):
-        super().__init__(db, "scan_jobs", ScanJob)
+        super().__init__(db, CollectionName.SCAN_JOBS, ScanJob)
 
     def get(self, job_id: str | ObjectId) -> Optional[ScanJob]:
         return self.find_by_id(job_id)

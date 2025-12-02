@@ -74,24 +74,9 @@ class ImportedRepository(BaseEntity):
     # Lazy Sync Fields
     last_synced_at: Optional[datetime] = None
 
-    # SonarQube Configuration
-    sonar_config: Optional[str] = None  # Content of sonar-project.properties
-    last_sync_status: str | None = None  # "success", "failed"
-    last_remote_check_at: datetime | None = None
-    latest_synced_run_created_at: datetime | None = None
-
     # Metadata
     metadata: Dict[str, Any] = {}
 
     # Risk Governance
     risk_thresholds: Dict[str, int] = {"high": 80, "medium": 50}
     shadow_mode: bool = False
-    sonar_metrics: Optional[List[str]] = Field(default=None)
-
-    # Pipeline Backend Fields
-    project_key: Optional[str] = None
-    total_commits: int = 0
-    processed_commits: int = 0
-    failed_commits: int = 0
-    source_filename: Optional[str] = None
-    source_path: Optional[str] = None

@@ -63,6 +63,7 @@ def list_repositories(
 ):
     """List tracked repositories with pagination."""
     user_id = str(current_user["_id"])
+    print(f"List repositories for user {user_id}")
     service = RepositoryService(db)
     return service.list_repositories(user_id, skip, limit, q)
 
@@ -382,6 +383,7 @@ async def retry_failed_scan(
         return {"status": "queued", "job_id": str(result.id)}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
 
 @router.put("/{repo_id}/metrics", response_model=RepoDetailResponse)
 def update_repository_metrics(

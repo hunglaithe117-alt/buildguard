@@ -11,9 +11,10 @@ from buildguard_common.models.scan_job import ScanJob, ScanJobStatus
 from buildguard_common.models.scan_result import ScanResult
 from buildguard_common.models.failed_scan import FailedScan as FailedCommit
 
-# Aliases for legacy/pipeline context
-Project = ImportedRepository
-ProjectStatus = ImportStatus
+from buildguard_common.models.repository_scan import (
+    RepositoryScan,
+    ScanCollectionStatus,
+)
 
 # Local models (if not in common yet)
 # None left for now
@@ -29,7 +30,7 @@ __all__ = [
     "ScanJobStatus",
     "ScanResult",
     "FailedCommit",
-    "Project",
-    "ProjectStatus",
+    "RepositoryScan",
+    "ScanCollectionStatus",
     "SonarConfig",
 ]

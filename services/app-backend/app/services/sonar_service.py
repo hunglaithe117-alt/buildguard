@@ -5,15 +5,16 @@ from typing import Optional
 from bson import ObjectId
 from pymongo.database import Database
 
-from app.domain.entities import ScanJob, ScanJobStatus
-from app.domain.entities import FailedScan, ScanStatus
+from buildguard_common.models import ScanJob, ScanJobStatus, FailedScan, ScanStatus
 from app.repositories import (
     ScanJobRepository,
     ScanResultRepository,
     FailedScanRepository,
     ImportedRepositoryRepository,
+    RepositoryScanRepository,
 )
 from app.services.build_service import BuildService
+from buildguard_common.repositories.base import CollectionName
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +26,26 @@ class SonarService:
         self.scan_result_repo = ScanResultRepository(db)
         self.failed_scan_repo = FailedScanRepository(db)
         self.repo_repo = ImportedRepositoryRepository(db)
+        self.scan_repo = RepositoryScanRepository(db)
         self.build_service = BuildService(db)
 
     def update_config(self, repo_id: str, config_content: str) -> bool:
-        return self.repo_repo.update(repo_id, {"sonar_config": config_content})
+        scan = self.scan_repo.get_by_project_id(repo_id)
+        if scan:
+            return bool(
+                self.scan_repo.update_scan(scan.id, sonar_config=config_content)
+            )
+        else:
+            # Create scan if not exists? Or should we fail?
+            # Assuming we should create it if we are configuring it.
+            # But we need sonar_project_key.
+            # For now, let's assume scan exists or we return False.
+            # Actually, better to return False if scan doesn't exist, as we need project key.
+            return False
 
     def get_config(self, repo_id: str) -> Optional[str]:
-        repo = self.repo_repo.get(repo_id)
-        return repo.sonar_config if repo else None
+        scan = self.scan_repo.get_by_project_id(repo_id)
+        return scan.sonar_config if scan else None
 
     def trigger_scan(self, build_id: str) -> ScanJob:
         from app.services.sonar_producer import sonar_producer
@@ -41,7 +54,9 @@ class SonarService:
         if not build:
             raise ValueError("Build not found")
 
-        repo_sample = self.db["build_samples"].find_one({"_id": ObjectId(build_id)})
+        repo_sample = self.db[CollectionName.BUILD_SAMPLES.value].find_one(
+            {"_id": ObjectId(build_id)}
+        )
         repo_id = str(repo_sample["repo_id"])
 
         job = ScanJob(
@@ -62,6 +77,18 @@ class SonarService:
                 f"Repository {created_job.repo_id} not found for job {created_job.id}"
             )
         else:
+            # Ensure RepositoryScan exists
+            scan = self.scan_repo.get_by_project_id(repo_id)
+            if not scan:
+                # Create default scan entry
+                scan = self.scan_repo.create_scan(
+                    project_id=repo_id,
+                    sonar_project_key=repo_doc.full_name.replace(
+                        "/", "_"
+                    ),  # Default key
+                    total_commits=0,  # Will be updated by scanner
+                )
+
             sonar_producer.trigger_scan(
                 TASK_RUN_SCAN,
                 args=[str(created_job.id)],
@@ -73,7 +100,7 @@ class SonarService:
         return created_job
 
     def retry_job(self, job_id: str, config_override: Optional[str] = None) -> ScanJob:
-        from app.infra.sonar import sonar_producer
+        from app.services.sonar_producer import sonar_producer
 
         job = self.scan_job_repo.get(job_id)
         if not job:

@@ -6,6 +6,7 @@ from redis import Redis
 
 from buildguard_common import GitHubClient, GitHubTokenPool, GithubConfigurationError
 from buildguard_common.github_auth import get_installation_token
+from buildguard_common.repositories.base import CollectionName
 
 _token_pool: GitHubTokenPool | None = None
 
@@ -21,7 +22,7 @@ def get_user_github_client(db: Database, user_id: str, api_url: str) -> GitHubCl
     if not user_id:
         raise GithubConfigurationError("user_id is required for user auth")
 
-    identity = db.oauth_identities.find_one(
+    identity = db[CollectionName.OAUTH_IDENTITIES.value].find_one(
         {"user_id": ObjectId(user_id), "provider": "github"}
     )
     if not identity or not identity.get("access_token"):

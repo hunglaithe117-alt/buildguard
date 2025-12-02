@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
-from app.domain.entities import PyObjectIdStr
+from buildguard_common.models.base import PyObjectIdStr
 
 
 class UserResponse(BaseModel):

@@ -8,12 +8,12 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 
 from buildguard_common.models.scan_result import ScanResult
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class ScanResultRepository(BaseRepository[ScanResult]):
     def __init__(self, db):
-        super().__init__(db, "scan_results", ScanResult)
+        super().__init__(db, CollectionName.SCAN_RESULTS, ScanResult)
 
     def upsert_by_job(self, job_id: str | ObjectId, data: Dict) -> ScanResult:
         filter_query = {"job_id": self._to_object_id(job_id)}

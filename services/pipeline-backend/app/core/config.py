@@ -9,6 +9,7 @@ import os
 
 import yaml
 from pydantic import BaseModel, Field
+from buildguard_common.repositories.base import CollectionName
 
 
 class PathsSettings(BaseModel):
@@ -74,11 +75,11 @@ class SonarSettings(BaseModel):
 
 
 class StorageCollections(BaseModel):
-    projects_collection: str = Field(default="imported_repositories")
-    scan_jobs_collection: str = Field(default="scan_jobs")
-    scan_results_collection: str = Field(default="scan_results")
-    failed_commits_collection: str = Field(default="failed_commits")
-    build_samples_collection: str = Field(default="build_samples")
+    projects_collection: str = Field(default=CollectionName.REPOSITORIES.value)
+    scan_jobs_collection: str = Field(default=CollectionName.SCAN_JOBS.value)
+    scan_results_collection: str = Field(default=CollectionName.SCAN_RESULTS.value)
+    failed_commits_collection: str = Field(default=CollectionName.FAILED_COMMITS.value)
+    build_samples_collection: str = Field(default=CollectionName.BUILD_SAMPLES.value)
 
 
 class WebSettings(BaseModel):

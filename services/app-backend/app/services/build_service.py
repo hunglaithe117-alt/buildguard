@@ -4,16 +4,17 @@ from bson import ObjectId
 from pymongo.database import Database
 
 from app.dtos.build import BuildDetail, BuildListResponse, BuildSummary
-from app.domain.entities import BuildSample, WorkflowRunRaw
+from buildguard_common.models import BuildSample, WorkflowRunRaw
 from app.celery_app import celery_app
 from datetime import datetime, timezone
+from buildguard_common.repositories.base import CollectionName
 
 
 class BuildService:
     def __init__(self, db: Database):
         self.db = db
-        self.build_collection = db["build_samples"]
-        self.workflow_collection = db["workflow_runs"]
+        self.build_collection = db[CollectionName.BUILD_SAMPLES.value]
+        self.workflow_collection = db[CollectionName.WORKFLOW_RUNS.value]
 
     def get_builds_by_repo(
         self, repo_id: str, skip: int = 0, limit: int = 20, q: Optional[str] = None

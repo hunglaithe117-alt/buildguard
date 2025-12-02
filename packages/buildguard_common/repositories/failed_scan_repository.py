@@ -6,12 +6,12 @@ from typing import List, Optional
 from bson import ObjectId
 
 from buildguard_common.models.failed_scan import FailedScan, ScanStatus
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class FailedScanRepository(BaseRepository[FailedScan]):
     def __init__(self, db):
-        super().__init__(db, "failed_scans", FailedScan)
+        super().__init__(db, CollectionName.FAILED_SCANS, FailedScan)
 
     def get_by_job_id(self, job_id: str | ObjectId) -> Optional[FailedScan]:
         return self.find_one({"job_id": self._to_object_id(job_id)})

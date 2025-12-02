@@ -10,6 +10,7 @@ from typing import Any, Optional, Tuple
 import httpx
 from jose import jwt
 
+from buildguard_common.repositories.base import CollectionName
 from .github_exceptions import GithubConfigurationError
 
 
@@ -89,7 +90,7 @@ def get_installation_token(
 
     if db is not None:
         # Check if installation is valid in DB
-        installation_doc = db.github_installations.find_one(
+        installation_doc = db[CollectionName.GITHUB_INSTALLATIONS.value].find_one(
             {"installation_id": installation_id}
         )
         if installation_doc:

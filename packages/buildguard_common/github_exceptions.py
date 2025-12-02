@@ -1,27 +1,22 @@
-"""GitHub-related exception types shared across services."""
-
 class GithubError(Exception):
-    """Base exception for pipeline failures."""
+    pass
 
 
 class GithubConfigurationError(GithubError):
-    """Raised when required configuration is missing."""
+    pass
 
 
 class GithubRateLimitError(GithubError):
-    """Raised when the upstream service enforces a rate limit."""
-
     def __init__(self, message: str, retry_after: int | float | None = None):
         super().__init__(message)
         self.retry_after = retry_after
 
 
 class GithubRetryableError(GithubError):
-    """Raised for transient issues where retrying later may succeed."""
+    pass
 
 
 class GithubAllRateLimitError(GithubError):
-    """Raised when all GitHub tokens hit rate limits."""
 
     def __init__(self, message: str, retry_after: int | float | None = None):
         super().__init__(message)

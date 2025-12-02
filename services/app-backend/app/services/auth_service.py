@@ -24,6 +24,7 @@ from app.services.github.github_token_manager import (
     GitHubTokenStatus,
     check_github_token_status,
 )
+from buildguard_common.repositories.base import CollectionName
 
 
 class AuthService:
@@ -60,7 +61,7 @@ class AuthService:
 
     def revoke_github_token(self, user_id: str) -> None:
         """Remove stored GitHub access tokens for the current user."""
-        result = self.db.oauth_identities.update_many(
+        result = self.db[CollectionName.OAUTH_IDENTITIES.value].update_many(
             {"user_id": user_id, "provider": "github"},
             {
                 "$set": {
@@ -93,7 +94,7 @@ class AuthService:
                 )
 
             # Check if user exists
-            user = self.db.users.find_one({"_id": ObjectId(user_id)})
+            user = self.db[CollectionName.USERS.value].find_one({"_id": ObjectId(user_id)})
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -118,7 +119,7 @@ class AuthService:
         user_id = user["_id"]
 
         # Get GitHub identity if exists
-        identity = self.db.oauth_identities.find_one(
+        identity = self.db[CollectionName.OAUTH_IDENTITIES.value].find_one(
             {"user_id": user_id, "provider": "github"}
         )
 
@@ -160,7 +161,7 @@ class AuthService:
         if identity:
             github_login = identity.get("account_login")
             if github_login:
-                install_count = self.db.github_installations.count_documents(
+                install_count = self.db[CollectionName.GITHUB_INSTALLATIONS.value].count_documents(
                     {"account_login": github_login}
                 )
                 app_installed = install_count > 0

@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from pymongo.database import Database
 
 from buildguard_common.github_wiring import get_app_github_client
+from buildguard_common.repositories.base import CollectionName
 from app.core.config import settings
 from app.core.redis import get_redis
 
@@ -18,7 +19,7 @@ def sync_user_available_repos(db: Database, user_id: str) -> List[str]:
     available_repo_repo = AvailableRepositoryRepository(db)
     seen_repos: Set[str] = set()
 
-    identity = db.oauth_identities.find_one(
+    identity = db[CollectionName.OAUTH_IDENTITIES.value].find_one(
         {"user_id": ObjectId(user_id), "provider": "github"}
     )
 
@@ -34,7 +35,9 @@ def sync_user_available_repos(db: Database, user_id: str) -> List[str]:
         # We look for installations where the account_login matches the user's login
         # TODO: For Organization installations, we need a way to know if the user has access.
         # Currently, we only sync if the user is the "owner" of the installation account.
-        installations = db.github_installations.find({"account_login": github_login})
+        installations = db[CollectionName.GITHUB_INSTALLATIONS.value].find(
+            {"account_login": github_login}
+        )
 
         for inst in installations:
             inst_id = inst["installation_id"]
@@ -59,7 +62,7 @@ def sync_user_available_repos(db: Database, user_id: str) -> List[str]:
 
                         # Check if already imported
                         is_imported = False
-                        existing_imported = db.repositories.find_one(
+                        existing_imported = db[CollectionName.REPOSITORIES.value].find_one(
                             {"full_name": full_name, "user_id": ObjectId(user_id)}
                         )
                         if existing_imported:

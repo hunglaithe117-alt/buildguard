@@ -4,11 +4,13 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.domain.entities import (
+from buildguard_common.models.base import (
+    PyObjectIdStr,
+)
+from buildguard_common.models.imported_repository import (
     SourceLanguage,
     TestFramework,
     CIProvider,
-    PyObjectIdStr,
 )
 
 

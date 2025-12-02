@@ -1,5 +1,5 @@
 import logging
-from app.domain.entities import ImportStatus
+from buildguard_common.models.imported_repository import ImportStatus
 from typing import List, Optional
 
 from bson import ObjectId
@@ -24,10 +24,11 @@ from buildguard_common.github_wiring import (
     get_public_github_client,
     get_user_github_client,
 )
+from buildguard_common.repositories.base import CollectionName
 from app.services.github.github_sync import sync_user_available_repos
 from app.services.sonar_producer import pipeline_client
 from buildguard_common.tasks import TASK_IMPORT_REPO
-from app.core.config import settings
+from app.config import settings
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class RepositoryService:
 
         full_names = [p.full_name for p in payloads]
         available_repos = list(
-            self.db.available_repositories.find(
+            self.db[CollectionName.AVAILABLE_REPOSITORIES.value].find(
                 {
                     "user_id": ObjectId(user_id),
                     "full_name": {"$in": full_names},
@@ -100,7 +101,9 @@ class RepositoryService:
                             "created_at": datetime.now(timezone.utc),
                             "updated_at": datetime.now(timezone.utc),
                         }
-                        self.db.available_repositories.insert_one(new_available_repo)
+                        self.db[CollectionName.AVAILABLE_REPOSITORIES.value].insert_one(
+                            new_available_repo
+                        )
                         available_repo = new_available_repo
 
                 except Exception as e:

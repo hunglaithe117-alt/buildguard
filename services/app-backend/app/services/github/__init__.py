@@ -1,10 +1,9 @@
-from app.infra import (
-    GitHubClient,
-    GitHubTokenPool,
-    github_app_configured,
+from buildguard_common import GitHubClient, GitHubTokenPool
+from buildguard_common.github_auth import (
     get_installation_token,
     clear_installation_token,
 )
+from .utils import github_app_configured
 
 from .github_oauth import (
     verify_github_token,

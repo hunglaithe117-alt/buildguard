@@ -7,7 +7,7 @@ from bson import ObjectId
 from git import Repo
 from pymongo.database import Database
 
-from app.domain.entities import BuildSample
+from buildguard_common.models import BuildSample
 from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
 from buildguard_common.github_auth import get_installation_token
 from app.utils.locking import repo_lock

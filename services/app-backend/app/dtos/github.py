@@ -1,6 +1,6 @@
 """GitHub integration DTOs"""
 
-from app.domain.entities import PyObjectIdStr
+from buildguard_common.models.base import PyObjectIdStr
 from datetime import datetime
 from typing import List, Optional
 

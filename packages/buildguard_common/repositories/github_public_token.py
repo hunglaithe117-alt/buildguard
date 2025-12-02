@@ -3,14 +3,14 @@ from typing import List, Optional
 from pymongo import ASCENDING
 
 from buildguard_common.models.github_public_token import GithubPublicToken
-from buildguard_common.repositories.base import BaseRepository
+from buildguard_common.repositories.base import BaseRepository, CollectionName
 
 
 class GithubPublicTokenRepository(BaseRepository[GithubPublicToken]):
     """Repository for managing GitHub public tokens."""
 
     def __init__(self, db):
-        super().__init__(db, "github_public_tokens", GithubPublicToken)
+        super().__init__(db, CollectionName.GITHUB_PUBLIC_TOKENS, GithubPublicToken)
         self._ensure_indexes()
 
     def _ensure_indexes(self):

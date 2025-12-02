@@ -15,6 +15,7 @@ from app.domain.entities import WorkflowRunRaw
 from app.celery_app import celery_app
 from bson import ObjectId
 from app.services.github.github_app import clear_installation_token
+from buildguard_common.repositories.base import CollectionName
 
 
 def verify_signature(signature: str | None, body: bytes) -> None:
@@ -61,7 +62,7 @@ def _handle_installation_event(
 
     if action == "created":
         # User installed the app
-        db.github_installations.update_one(
+        db[CollectionName.GITHUB_INSTALLATIONS.value].update_one(
             {"installation_id": installation_id},
             {
                 "$set": {
@@ -89,7 +90,7 @@ def _handle_installation_event(
 
     elif action == "deleted":
         # User uninstalled the app
-        db.github_installations.update_one(
+        db[CollectionName.GITHUB_INSTALLATIONS.value].update_one(
             {"installation_id": installation_id},
             {"$set": {"revoked_at": now, "uninstalled_at": now}},
         )
@@ -103,7 +104,7 @@ def _handle_installation_event(
         }
 
     elif action == "suspend":
-        db.github_installations.update_one(
+        db[CollectionName.GITHUB_INSTALLATIONS.value].update_one(
             {"installation_id": installation_id}, {"$set": {"suspended_at": now}}
         )
 
@@ -115,7 +116,7 @@ def _handle_installation_event(
         }
 
     elif action == "unsuspend":
-        db.github_installations.update_one(
+        db[CollectionName.GITHUB_INSTALLATIONS.value].update_one(
             {"installation_id": installation_id}, {"$set": {"suspended_at": None}}
         )
         return {
@@ -152,7 +153,7 @@ def _handle_workflow_run_event(
         return {"status": "ignored", "reason": "bot_triggered"}
 
     # Check if we are tracking this repo
-    repo = db.repositories.find_one({"full_name": full_name})
+    repo = db[CollectionName.REPOSITORIES.value].find_one({"full_name": full_name})
     if not repo:
         return {"status": "ignored", "reason": "repo_not_imported"}
 
@@ -196,7 +197,7 @@ def _handle_workflow_run_event(
         )
         workflow_run_repo.insert_one(new_run)
 
-        db.repositories.update_one(
+        db[CollectionName.REPOSITORIES.value].update_one(
             {"_id": ObjectId(repo_id)}, {"$inc": {"total_builds_imported": 1}}
         )
 
@@ -234,7 +235,7 @@ def handle_github_event(
         if sender_login:
             # Find user by GitHub login
             # We need to find the user who has this GitHub account linked
-            identity = db.oauth_identities.find_one(
+            identity = db[CollectionName.OAUTH_IDENTITIES.value].find_one(
                 {
                     "$or": [
                         {"account_login": sender_login},

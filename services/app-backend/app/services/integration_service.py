@@ -11,6 +11,7 @@ from app.dtos.github import (
     GithubInstallationResponse,
 )
 from buildguard_common.github_wiring import get_user_github_client
+from buildguard_common.repositories.base import CollectionName
 
 
 class IntegrationService:
@@ -19,7 +20,7 @@ class IntegrationService:
 
     def list_github_installations(self) -> GithubInstallationListResponse:
         """List all GitHub App installations."""
-        installations_cursor = self.db.github_installations.find().sort(
+        installations_cursor = self.db[CollectionName.GITHUB_INSTALLATIONS.value].find().sort(
             "installed_at", -1
         )
         installations = [
@@ -31,7 +32,7 @@ class IntegrationService:
         self, installation_id: str
     ) -> GithubInstallationResponse:
         """Get details of a specific GitHub App installation."""
-        installation = self.db.github_installations.find_one(
+        installation = self.db[CollectionName.GITHUB_INSTALLATIONS.value].find_one(
             {"installation_id": installation_id}
         )
         if not installation:
@@ -51,7 +52,7 @@ class IntegrationService:
             return GithubInstallationListResponse(installations=[])
 
         # Query installations for this account
-        installations_cursor = self.db.github_installations.find(
+        installations_cursor = self.db[CollectionName.GITHUB_INSTALLATIONS.value].find(
             {"account_login": github_login}
         ).sort("installed_at", -1)
 

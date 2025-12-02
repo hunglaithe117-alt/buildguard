@@ -2,18 +2,27 @@ import logging
 import httpx
 from typing import List
 from app.config import settings
-from app.domain.entities import BuildSample
+from buildguard_common.models import BuildSample
 
 logger = logging.getLogger(__name__)
 
+
 class NotificationService:
-    def send_alert(self, build: BuildSample, risk_factors: List[str], risk_score: float = 0.0, shadow_mode: bool = False):
+    def send_alert(
+        self,
+        build: BuildSample,
+        risk_factors: List[str],
+        risk_score: float = 0.0,
+        shadow_mode: bool = False,
+    ):
         if not settings.SLACK_WEBHOOK_URL:
             logger.warning("SLACK_WEBHOOK_URL not set, skipping alert")
             return
 
         if shadow_mode:
-            logger.info(f"Shadow Mode: Alert suppressed for build {build.id} (Risk Score: {risk_score})")
+            logger.info(
+                f"Shadow Mode: Alert suppressed for build {build.id} (Risk Score: {risk_score})"
+            )
             return
 
         # Basic Slack payload
@@ -25,45 +34,37 @@ class NotificationService:
                     "text": {
                         "type": "plain_text",
                         "text": "⚠️ High Risk Build Detected",
-                        "emoji": True
-                    }
+                        "emoji": True,
+                    },
                 },
                 {
                     "type": "section",
                     "fields": [
+                        {"type": "mrkdwn", "text": f"*Repository:*\n{build.repo_id}"},
                         {
                             "type": "mrkdwn",
-                            "text": f"*Repository:*\n{build.repo_id}"
+                            "text": f"*Build Number:*\n#{build.tr_build_number}",
                         },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Build Number:*\n#{build.tr_build_number}"
-                        }
-                    ]
+                    ],
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Risk Score:*\n{risk_score:.2f}"
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Status:*\n{build.status}"
-                        }
-                    ]
+                        {"type": "mrkdwn", "text": f"*Risk Score:*\n{risk_score:.2f}"},
+                        {"type": "mrkdwn", "text": f"*Status:*\n{build.status}"},
+                    ],
                 },
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "*Risk Factors:*\n" + "\n".join([f"• {f}" for f in risk_factors])
-                    }
-                }
-            ]
+                        "text": "*Risk Factors:*\n"
+                        + "\n".join([f"• {f}" for f in risk_factors]),
+                    },
+                },
+            ],
         }
-        
+
         try:
             with httpx.Client(timeout=10.0) as client:
                 response = client.post(settings.SLACK_WEBHOOK_URL, json=payload)

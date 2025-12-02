@@ -10,6 +10,7 @@ from pymongo.database import Database
 
 from app.database.mongo import get_db
 from app.services.auth_service import decode_access_token
+from buildguard_common.repositories.base import CollectionName
 
 
 async def get_current_user_id(
@@ -55,7 +56,7 @@ async def get_current_user(
     db: Database = Depends(get_db),
 ) -> dict:
     try:
-        user = db.users.find_one({"_id": ObjectId(user_id)})
+        user = db[CollectionName.USERS.value].find_one({"_id": ObjectId(user_id)})
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="User not found"

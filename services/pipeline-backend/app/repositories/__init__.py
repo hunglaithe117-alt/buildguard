@@ -12,13 +12,16 @@ from buildguard_common.repositories.scan_result_repository import (
 from buildguard_common.repositories.failed_commit_repository import (
     FailedCommitRepository as FailedCommitsRepository,
 )
-from buildguard_common.repositories.base import BaseRepository as MongoRepositoryBase
+from buildguard_common.repositories.base import MongoRepositoryBase
 from buildguard_common.repositories.build_sample_repository import (
     BuildSampleRepository as BuildSamplesRepository,
 )
 from buildguard_common.repositories.workflow_run_repository import WorkflowRunRepository
 from buildguard_common.repositories.imported_repository import (
     ImportedRepositoryRepository,
+)
+from buildguard_common.repositories.repository_scan_repository import (
+    RepositoryScanRepository,
 )
 from buildguard_common.repositories.build_sample_repository import BuildSampleRepository
 
@@ -33,4 +36,5 @@ __all__ = [
     "WorkflowRunRepository",
     "ImportedRepositoryRepository",
     "BuildSampleRepository",
+    "RepositoryScanRepository",
 ]

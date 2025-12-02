@@ -12,6 +12,7 @@ from .imported_repository import (
     CIProvider,
     ImportStatus,
 )
+from .sonar_config import SonarConfig
 from .user import User
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "OAuthIdentity",
     "ImportedRepository",
     "User",
+    "SonarConfig",
     # Enums
     "Provider",
     "TestFramework",

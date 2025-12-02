@@ -6,7 +6,7 @@ from pymongo.database import Database
 from buildguard_common import GitHubClient, GitHubTokenPool, GithubConfigurationError
 
 from app.config import settings
-from app.services.github.github_app import github_app_configured, get_installation_token
+from .github_app import github_app_configured, get_installation_token
 
 _token_pool: GitHubTokenPool | None = None
 
@@ -15,7 +15,9 @@ def _client_with_api_url(
     token: str | None = None, token_pool: GitHubTokenPool | None = None
 ) -> GitHubClient:
     """Create a GitHubClient pointing to the configured API URL."""
-    return GitHubClient(token=token, token_pool=token_pool, api_url=settings.GITHUB_API_URL)
+    return GitHubClient(
+        token=token, token_pool=token_pool, api_url=settings.GITHUB_API_URL
+    )
 
 
 def get_user_github_client(db: Database, user_id: str) -> GitHubClient:

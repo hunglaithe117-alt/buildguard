@@ -30,7 +30,6 @@ class SonarScanProducer:
         repo_url: str,
         commit_sha: str,
         project_key: str | None = None,
-        project_key: str | None = None,
         repo_slug: str | None = None,
         external_job_id: str | None = None,
     ) -> str:

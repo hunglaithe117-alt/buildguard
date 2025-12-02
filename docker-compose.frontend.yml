@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  # ==========================================
+  # BUILD RISK UI SERVICES
+  # ==========================================
+
+  app-frontend:
+    build:
+      context: ./services/app-frontend
+      dockerfile: Dockerfile
+    container_name: buildguard-frontend
+    command: npm run dev
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      # Thay đổi IP này thành IP của Server mạnh
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./services/app-frontend:/app
+      - /app/node_modules
+      - /app/.next

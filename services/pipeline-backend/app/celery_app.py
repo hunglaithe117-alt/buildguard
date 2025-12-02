@@ -8,6 +8,7 @@ from kombu import Queue
 from app.core.config import settings
 from app.core.logging import setup_logging
 
+
 @signals.setup_logging.connect
 def on_setup_logging(**kwargs):
     setup_logging(settings.logging.level)
@@ -62,15 +63,16 @@ celery_app.conf.update(
         TASK_EXTRACT_DISCUSSION: {"queue": "data_processing"},
         TASK_FINALIZE_SAMPLE: {"queue": "data_processing"},
     },
-)
-
     task_queues=(
         Queue("pipeline.ingest"),
-        Queue("pipeline.scan", queue_arguments={
-            "x-max-priority": 10,
-            "x-dead-letter-exchange": "dlx",
-            "x-dead-letter-routing-key": "pipeline.scan.dlq"
-        }),
+        Queue(
+            "pipeline.scan",
+            queue_arguments={
+                "x-max-priority": 10,
+                "x-dead-letter-exchange": "dlx",
+                "x-dead-letter-routing-key": "pipeline.scan.dlq",
+            },
+        ),
         Queue("pipeline.exports"),
         Queue("pipeline.scan.dlq"),
         Queue("import_repo"),

@@ -32,6 +32,7 @@ from .repository import (
     RepoSuggestion,
     RepoSuggestionListResponse,
     RepoUpdateRequest,
+    RepoMetricsUpdateRequest,
 )
 from .user import (
     OAuthIdentityResponse,
@@ -63,6 +64,7 @@ __all__ = [
     "RepoSuggestion",
     "RepoSuggestionListResponse",
     "RepoUpdateRequest",
+    "RepoMetricsUpdateRequest",
     # User
     "OAuthIdentityResponse",
     "UserResponse",

@@ -1,5 +1,6 @@
 """SonarQube webhook endpoints for receiving scan completion notifications."""
 
+from typing import List
 import hashlib
 import hmac
 import json
@@ -13,7 +14,6 @@ from fastapi import Depends
 from app.config import settings
 from app.database.mongo import get_db
 from app.infra.repositories import ScanJobRepository
-from app.domain.entities import ScanJobStatus
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -95,6 +95,7 @@ async def sonar_webhook(
         f"Queued metrics export for component {component_key}, job {scan_job['_id']}"
     )
     return {"received": True, "component_key": component_key}
+
 
 @router.get("/metrics", response_model=List[str])
 def list_available_metrics():

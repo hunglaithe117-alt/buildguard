@@ -83,7 +83,9 @@ class GitHubClient:
             raise GithubConfigurationError("GitHub token is required to call the API")
         self._api_url = api_url.rstrip("/")
         transport = httpx.HTTPTransport(retries=3)
-        self._rest = httpx.Client(base_url=self._api_url, timeout=120, transport=transport)
+        self._rest = httpx.Client(
+            base_url=self._api_url, timeout=120, transport=transport
+        )
 
     def _headers(self) -> Dict[str, str]:
         headers = {
@@ -123,9 +125,13 @@ class GitHubClient:
         if self._token_pool and self._token:
             self._token_pool.mark_rate_limited(self._token, reset_epoch=reset_header)
 
-        raise GithubRateLimitError("GitHub rate limit reached", retry_after=wait_seconds)
+        raise GithubRateLimitError(
+            "GitHub rate limit reached", retry_after=wait_seconds
+        )
 
-    def _retry_on_rate_limit(self, request_func: Callable[[], httpx.Response]) -> httpx.Response:
+    def _retry_on_rate_limit(
+        self, request_func: Callable[[], httpx.Response]
+    ) -> httpx.Response:
         while True:
             try:
                 response = request_func()
@@ -142,10 +148,13 @@ class GitHubClient:
         response = self._retry_on_rate_limit(_do_request)
         return response.json()
 
-    def _paginate(self, path: str, params: Optional[Dict[str, Any]] = None) -> Iterator[Dict[str, Any]]:
+    def _paginate(
+        self, path: str, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[Dict[str, Any]]:
         url = path
         query = params or {}
         while url:
+
             def _do_request():
                 return self._rest.get(url, headers=self._headers(), params=query)
 
@@ -170,7 +179,9 @@ class GitHubClient:
     def get_repository(self, full_name: str) -> Dict[str, Any]:
         return self._rest_request("GET", f"/repos/{full_name}")
 
-    def list_authenticated_repositories(self, per_page: int = 10) -> List[Dict[str, Any]]:
+    def list_authenticated_repositories(
+        self, per_page: int = 10
+    ) -> List[Dict[str, Any]]:
         params = {
             "per_page": per_page,
             "sort": "updated",
@@ -183,17 +194,23 @@ class GitHubClient:
         response = self._rest_request("GET", "/user/installations")
         return response.get("installations", []) if isinstance(response, dict) else []
 
-    def search_repositories(self, query: str, per_page: int = 10) -> List[Dict[str, Any]]:
+    def search_repositories(
+        self, query: str, per_page: int = 10
+    ) -> List[Dict[str, Any]]:
         params = {"q": query, "per_page": per_page}
         response = self._rest_request("GET", "/search/repositories", params=params)
         return response.get("items", []) if isinstance(response, dict) else []
 
-    def paginate_workflow_runs(self, full_name: str, params: Optional[Dict[str, Any]] = None) -> Iterator[Dict[str, Any]]:
+    def paginate_workflow_runs(
+        self, full_name: str, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[Dict[str, Any]]:
         url = f"/repos/{full_name}/actions/runs"
         query = params or {}
         while url:
+
             def _do_request():
                 return self._rest.get(url, headers=self._headers(), params=query)
+
             response = self._retry_on_rate_limit(_do_request)
             data = response.json()
             runs = data.get("workflow_runs", [])
@@ -209,12 +226,16 @@ class GitHubClient:
                         url = segment[segment.find("<") + 1 : segment.find(">")]
                         break
 
-    def paginate_pull_requests(self, full_name: str, params: Optional[Dict[str, Any]] = None) -> Iterator[Dict[str, Any]]:
+    def paginate_pull_requests(
+        self, full_name: str, params: Optional[Dict[str, Any]] = None
+    ) -> Iterator[Dict[str, Any]]:
         url = f"/repos/{full_name}/pulls"
         query = params or {}
         while url:
+
             def _do_request():
                 return self._rest.get(url, headers=self._headers(), params=query)
+
             response = self._retry_on_rate_limit(_do_request)
             prs = response.json()
             for pr in prs:
@@ -233,7 +254,9 @@ class GitHubClient:
         return self._rest_request("GET", f"/repos/{full_name}/actions/runs/{run_id}")
 
     def list_workflow_jobs(self, full_name: str, run_id: int) -> List[Dict[str, Any]]:
-        jobs = self._rest_request("GET", f"/repos/{full_name}/actions/runs/{run_id}/jobs")
+        jobs = self._rest_request(
+            "GET", f"/repos/{full_name}/actions/runs/{run_id}/jobs"
+        )
         return jobs.get("jobs", []) if isinstance(jobs, dict) else []
 
     def download_job_logs(self, full_name: str, job_id: int) -> bytes:
@@ -250,6 +273,7 @@ class GitHubClient:
     def logs_available(self, full_name: str, run_id: int) -> bool:
         """Return True if the workflow run log archive is still retrievable."""
         try:
+
             def _do_request():
                 return self._rest.head(
                     f"/repos/{full_name}/actions/runs/{run_id}/logs",
@@ -259,7 +283,10 @@ class GitHubClient:
             while True:
                 try:
                     response = _do_request()
-                    if response.status_code == 403 and "rate limit" in response.text.lower():
+                    if (
+                        response.status_code == 403
+                        and "rate limit" in response.text.lower()
+                    ):
                         self._handle_rate_limit(response)
                     break
                 except GithubRateLimitError:
@@ -280,14 +307,24 @@ class GitHubClient:
         return response.is_success
 
     def list_commit_comments(self, full_name: str, sha: str) -> List[Dict[str, Any]]:
-        comments = self._rest_request("GET", f"/repos/{full_name}/commits/{sha}/comments")
+        comments = self._rest_request(
+            "GET", f"/repos/{full_name}/commits/{sha}/comments"
+        )
         return comments or []
 
-    def list_issue_comments(self, full_name: str, issue_number: int) -> List[Dict[str, Any]]:
-        return self._rest_request("GET", f"/repos/{full_name}/issues/{issue_number}/comments")
+    def list_issue_comments(
+        self, full_name: str, issue_number: int
+    ) -> List[Dict[str, Any]]:
+        return self._rest_request(
+            "GET", f"/repos/{full_name}/issues/{issue_number}/comments"
+        )
 
-    def list_review_comments(self, full_name: str, pr_number: int) -> List[Dict[str, Any]]:
-        reviews = self._rest_request("GET", f"/repos/{full_name}/pulls/{pr_number}/comments")
+    def list_review_comments(
+        self, full_name: str, pr_number: int
+    ) -> List[Dict[str, Any]]:
+        reviews = self._rest_request(
+            "GET", f"/repos/{full_name}/pulls/{pr_number}/comments"
+        )
         return reviews or []
 
     def compare_commits(self, full_name: str, base: str, head: str) -> Dict[str, Any]:
@@ -302,7 +339,7 @@ class GitHubClient:
     def close(self) -> None:
         self._rest.close()
 
-    def __enter__(self) -> \"GitHubClient\":  # pragma: no cover
+    def __enter__(self) -> GitHubClient:  # pragma: no cover
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:  # pragma: no cover

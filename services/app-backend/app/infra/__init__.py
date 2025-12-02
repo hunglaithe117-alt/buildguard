@@ -12,6 +12,7 @@ from app.infra.github_app import (
     get_installation_token,
     clear_installation_token,
 )
+
 from app.infra.sonar import sonar_producer, SonarScanProducer
 
 __all__ = [

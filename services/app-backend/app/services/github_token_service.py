@@ -5,8 +5,9 @@ import time
 import threading
 from typing import List, Optional, Dict, Any, Tuple
 
-from pymongo import ReturnDocument, ASCENDING
-from app.services.repository_base import MongoRepositoryBase
+from pymongo import ASCENDING
+from app.config import settings
+from app.infra.mongo import get_database
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +25,14 @@ class Token:
         return f"<Token {self.key[:4]}... Rem:{self.remaining}>"
 
 
-class GitHubTokenService(MongoRepositoryBase):
+class GitHubTokenService:
     """
     Token Manager backed by MongoDB.
     Directly queries MongoDB for token operations.
     """
 
     def __init__(self) -> None:
-        super().__init__()
+        self.db = get_database(settings.MONGODB_URI, settings.MONGODB_DB_NAME)
         self.collection = self.db["github_tokens"]
         self._ensure_indexes()
         self.pool_lock = threading.Lock()
@@ -41,7 +42,9 @@ class GitHubTokenService(MongoRepositoryBase):
         self.collection.create_index("type")
         self.collection.create_index("disabled")
 
-    def add_token(self, token_str: str, token_type: str = "pat", enable: bool = True) -> bool:
+    def add_token(
+        self, token_str: str, token_type: str = "pat", enable: bool = True
+    ) -> bool:
         """Add a new token to MongoDB."""
         try:
             self.collection.update_one(
@@ -107,7 +110,7 @@ class GitHubTokenService(MongoRepositoryBase):
                     t = Token(
                         best_doc["token"],
                         remaining=best_doc.get("remaining", 5000),
-                        reset_time=best_doc.get("reset_time", 0.0)
+                        reset_time=best_doc.get("reset_time", 0.0),
                     )
 
                     # If we assumed it reset, let's update the object state
@@ -145,12 +148,14 @@ class GitHubTokenService(MongoRepositoryBase):
 
             if updates:
                 self.collection.update_one({"token": token_key}, {"$set": updates})
-                
+
                 # Log status for debugging
                 rem = updates.get("remaining", "?")
                 res = updates.get("reset_time", 0)
                 wait = int(res - time.time()) if res else 0
-                logger.debug(f"🔄 Updated {token_key[:4]}... | Rem: {rem} | Resets in: {wait}s")
+                logger.debug(
+                    f"🔄 Updated {token_key[:4]}... | Rem: {rem} | Resets in: {wait}s"
+                )
 
         except Exception as e:
             logger.error(f"Failed to update token {token_key[:4]}... in Mongo: {e}")
@@ -206,5 +211,14 @@ class GitHubTokenService(MongoRepositoryBase):
 
     def get_token(self, token_id: str) -> Optional[Dict[str, Any]]:
         from bson import ObjectId
+
         doc = self.collection.find_one({"_id": ObjectId(token_id)})
         return self._serialize(doc) if doc else None
+
+    def _serialize(self, doc: Dict[str, Any]) -> Dict[str, Any]:
+        if not doc:
+            return {}
+        # Convert ObjectId to string
+        if "_id" in doc:
+            doc["id"] = str(doc.pop("_id"))
+        return doc

@@ -5,9 +5,8 @@ from typing import List, Optional
 
 from bson import ObjectId
 
-from app.domain.entities import FailedScan, ScanStatus
-from buildguard_common.mongo import get_database
-from app.repositories.base import BaseRepository
+from buildguard_common.models.failed_scan import FailedScan, ScanStatus
+from buildguard_common.repositories.base import BaseRepository
 
 
 class FailedScanRepository(BaseRepository[FailedScan]):

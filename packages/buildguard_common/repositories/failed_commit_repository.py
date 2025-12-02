@@ -8,10 +8,10 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo import ReturnDocument
 
-from app.repositories.base import MongoRepositoryBase
+from buildguard_common.repositories.base import MongoRepositoryBase
 
 
-class FailedCommitsRepository(MongoRepositoryBase):
+class FailedCommitRepository(MongoRepositoryBase):
     def insert_failed_commit(
         self,
         *,
@@ -104,4 +104,4 @@ class FailedCommitsRepository(MongoRepositoryBase):
         )
 
 
-__all__ = ["FailedCommitsRepository"]
+__all__ = ["FailedCommitRepository"]

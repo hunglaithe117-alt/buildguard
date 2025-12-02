@@ -8,7 +8,8 @@ from celery.utils.log import get_task_logger
 from app.celery_app import celery_app
 from app.core.config import settings
 from app.models import ProjectStatus
-from app.repositories import repository
+from app.repositories import ProjectsRepository, ScanJobsRepository
+from buildguard_common.mongo import get_database
 from app.services.ingestion.csv_pipeline import CSVIngestionPipeline
 from app.services.sonar.runner import normalize_repo_url
 from app.tasks.sonar import run_scan_job
@@ -16,9 +17,17 @@ from app.tasks.sonar import run_scan_job
 logger = get_task_logger(__name__)
 
 
+def _get_db():
+    return get_database(settings.mongo.uri, settings.mongo.database)
+
+
 @celery_app.task(bind=True)
 def ingest_project(self, project_id: str) -> dict:
-    project = repository.get_project(project_id)
+    db = _get_db()
+    projects_repo = ProjectsRepository(db)
+    scan_jobs_repo = ScanJobsRepository(db)
+
+    project = projects_repo.get_project(project_id)
     if not project:
         raise ValueError(f"Project {project_id} not found")
 
@@ -30,7 +39,7 @@ def ingest_project(self, project_id: str) -> dict:
     pipeline = CSVIngestionPipeline(csv_path)
     summary = pipeline.summarise()
 
-    repository.update_project(
+    projects_repo.update_project(
         project_id,
         import_status=ProjectStatus.IMPORTING.value,
         total_builds=summary.get("total_builds", 0),
@@ -53,7 +62,7 @@ def ingest_project(self, project_id: str) -> dict:
 
     total_commits = int(len(df_unique))
     if total_commits == 0:
-        repository.update_project(
+        projects_repo.update_project(
             project_id, import_status=ProjectStatus.IMPORTED.value
         )
         return {"project_id": project_id, "queued": 0}
@@ -68,7 +77,7 @@ def ingest_project(self, project_id: str) -> dict:
         repo_url = row.get("repository_url") or None
         repo_url = normalize_repo_url(repo_url, repo_slug)
 
-        job_doc = repository.create_scan_job(
+        job_doc = scan_jobs_repo.create_scan_job(
             project_id=project_id,
             commit_sha=commit,
             repository_url=repo_url,

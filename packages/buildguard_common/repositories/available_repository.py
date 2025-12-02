@@ -5,9 +5,8 @@ from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 
-from app.domain.entities import AvailableRepository
-from buildguard_common.mongo import get_database
-from app.repositories.base import BaseRepository
+from buildguard_common.models.available_repository import AvailableRepository
+from buildguard_common.repositories.base import BaseRepository
 
 
 class AvailableRepositoryRepository(BaseRepository[AvailableRepository]):

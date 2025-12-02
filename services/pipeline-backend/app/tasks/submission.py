@@ -6,11 +6,16 @@ from celery.utils.log import get_task_logger
 from app.celery_app import celery_app
 from app.core.config import settings
 from app.models import ProjectStatus
-from app.repositories import repository
+from app.repositories import ProjectsRepository, ScanJobsRepository
+from buildguard_common.mongo import get_database
 from app.tasks.sonar import run_scan_job
 from pipeline.sonar import normalize_repo_url
 
 logger = get_task_logger(__name__)
+
+
+def _get_db():
+    return get_database(settings.mongo.uri, settings.mongo.database)
 
 
 @celery_app.task(bind=True)
@@ -40,29 +45,19 @@ def submit_scan(
             project_key = repo_url.split("/")[-1].replace(".git", "")
 
     # Find or Create Project
-    # We need a project to attach the job to.
-    # In this pipeline, 'Project' usually maps to a repo.
-    # We'll try to find by repo_url or project_key.
-
-    # Note: repository service might need 'get_project_by_url' or similar.
-    # For now, we'll assume we can search or create one.
-    # Since we don't have a direct 'get_by_url', we'll create a new one if we can't find it easily.
-    # But to avoid duplicates, we should probably use project_key as unique identifier if possible.
-
-    # Let's assume project_key is unique enough for now.
-    # Ideally we'd query by project_key, but the repo service uses ObjectId.
-    # We'll create a new project for this submission if we don't have a clear way to lookup.
-    # OR, we can just create a "Ad-hoc" project.
-
-    # For simplicity in this refactor, we'll create a new project entry if it's a new submission
-    # or reuse if we can find it.
-    # Since we lack a search-by-key in the visible code, we'll create a new one.
-    # TODO: Implement deduplication.
+    db = _get_db()
+    projects_repo = ProjectsRepository(db)
+    scan_jobs_repo = ScanJobsRepository(db)
 
     # Try to find existing project
-    project_doc = repository.find_project_by_key(project_key)
+    # Note: ProjectsRepository needs a find_by_key method or similar.
+    # The previous code used `repository.find_project_by_key`.
+    # Let's check if `ProjectsRepository` has it.
+    # If not, I'll use `find_one`.
+
+    project_doc = projects_repo.find_one({"project_key": project_key})
     if not project_doc:
-        project_doc = repository.create_project(
+        project_doc = projects_repo.create_project(
             full_name=repo_slug or project_key,
             project_key=project_key,
             total_builds=0,
@@ -72,7 +67,7 @@ def submit_scan(
     project_id = project_doc["id"]
 
     # Create Scan Job
-    job_doc = repository.create_scan_job(
+    job_doc = scan_jobs_repo.create_scan_job(
         project_id=project_id,
         commit_sha=commit_sha,
         repository_url=repo_url,

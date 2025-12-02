@@ -2,9 +2,8 @@
 
 from typing import Optional
 
-from app.domain.entities import GithubInstallation
-from buildguard_common.mongo import get_database
-from app.repositories.base import BaseRepository
+from buildguard_common.models.github_installation import GithubInstallation
+from buildguard_common.repositories.base import BaseRepository
 
 
 class GithubInstallationRepository(BaseRepository[GithubInstallation]):

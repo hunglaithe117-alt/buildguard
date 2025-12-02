@@ -1,15 +1,23 @@
 """Repository layer re-exports for compatibility during refactor."""
 
-from app.repositories.available_repository import AvailableRepositoryRepository
-from app.repositories.build_sample import BuildSampleRepository
-from app.repositories.failed_scan import FailedScanRepository
-from app.repositories.github_installation import GithubInstallationRepository
-from app.repositories.imported_repository import ImportedRepositoryRepository
-from app.repositories.oauth_identity import OAuthIdentityRepository
-from app.repositories.scan_job import ScanJobRepository
-from app.repositories.scan_result import ScanResultRepository
-from app.repositories.user import UserRepository
-from app.repositories.workflow_run import WorkflowRunRepository
+from buildguard_common.repositories.available_repository import (
+    AvailableRepositoryRepository,
+)
+from buildguard_common.repositories.build_sample_repository import BuildSampleRepository
+from buildguard_common.repositories.failed_scan_repository import FailedScanRepository
+from buildguard_common.repositories.github_installation_repository import (
+    GithubInstallationRepository,
+)
+from buildguard_common.repositories.imported_repository import (
+    ImportedRepositoryRepository,
+)
+from buildguard_common.repositories.oauth_identity_repository import (
+    OAuthIdentityRepository,
+)
+from buildguard_common.repositories.scan_job_repository import ScanJobRepository
+from buildguard_common.repositories.scan_result_repository import ScanResultRepository
+from buildguard_common.repositories.user_repository import UserRepository
+from buildguard_common.repositories.workflow_run_repository import WorkflowRunRepository
 
 __all__ = [
     "AvailableRepositoryRepository",

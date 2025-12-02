@@ -5,16 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pymongo import ReturnDocument
 from bson import ObjectId
+from pymongo import ReturnDocument
 
-from app.models import ProjectStatus
-from app.repositories.base import MongoRepositoryBase
-
-_UNSET = object()
+from buildguard_common.models.imported_repository import ImportStatus as ProjectStatus
+from buildguard_common.repositories.base import MongoRepositoryBase
 
 
-class ProjectsRepository(MongoRepositoryBase):
+class ProjectRepository(MongoRepositoryBase):
     def create_project(
         self,
         *,
@@ -106,13 +104,13 @@ class ProjectsRepository(MongoRepositoryBase):
         project_id: str,
         *,
         import_status: Optional[str] = None,
-        sonar_config: Any = _UNSET,
+        sonar_config: Any = None,
         processed_commits: Optional[int] = None,
         failed_commits: Optional[int] = None,
         processed_delta: Optional[int] = None,
         failed_delta: Optional[int] = None,
-        total_builds: Any = _UNSET,
-        total_commits: Any = _UNSET,
+        total_builds: Any = None,
+        total_commits: Any = None,
     ) -> Optional[Dict[str, Any]]:
         updates: Dict[str, Any] = {"updated_at": datetime.utcnow()}
         if import_status:
@@ -121,11 +119,11 @@ class ProjectsRepository(MongoRepositoryBase):
             updates["processed_commits"] = processed_commits
         if failed_commits is not None:
             updates["failed_commits"] = failed_commits
-        if sonar_config is not _UNSET:
+        if sonar_config is not None:
             updates["sonar_config"] = sonar_config
-        if total_builds is not _UNSET:
+        if total_builds is not None:
             updates["total_builds"] = int(total_builds or 0)
-        if total_commits is not _UNSET:
+        if total_commits is not None:
             updates["total_commits"] = int(total_commits or 0)
 
         inc: Dict[str, Any] = {}
@@ -146,4 +144,4 @@ class ProjectsRepository(MongoRepositoryBase):
         return self._serialize(doc) if doc else None
 
 
-__all__ = ["ProjectsRepository"]
+__all__ = ["ProjectRepository"]

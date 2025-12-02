@@ -2,11 +2,8 @@
 
 from typing import Optional
 
-from bson import ObjectId
-
-from app.domain.entities import User
-from buildguard_common.mongo import get_database
-from app.repositories.base import BaseRepository
+from buildguard_common.models.user import User
+from buildguard_common.repositories.base import BaseRepository
 
 
 class UserRepository(BaseRepository[User]):

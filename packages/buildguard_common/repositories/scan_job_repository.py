@@ -1,18 +1,42 @@
-"""Scan jobs repository (infra layer)."""
+"""Repository for scan jobs (infra layer)."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 from pymongo import ReturnDocument
 
-from app.models import ScanJobStatus
-from app.repositories.base import MongoRepositoryBase
+from buildguard_common.models.scan_job import ScanJob, ScanJobStatus
+from buildguard_common.repositories.base import BaseRepository
 
 
-class ScanJobsRepository(MongoRepositoryBase):
+class ScanJobRepository(BaseRepository[ScanJob]):
+    def __init__(self, db):
+        super().__init__(db, "scan_jobs", ScanJob)
+
+    def get(self, job_id: str | ObjectId) -> Optional[ScanJob]:
+        return self.find_by_id(job_id)
+
+    def update(self, job_id: str | ObjectId, data: Dict[str, Any]) -> Optional[ScanJob]:
+        data["updated_at"] = datetime.now(timezone.utc)
+        return super().update(job_id, data)
+
+    def list_by_repo(
+        self, repo_id: str | ObjectId, skip: int = 0, limit: int = 20
+    ) -> List[ScanJob]:
+        return self.find_many(
+            {"repo_id": self._to_object_id(repo_id)},
+            sort=[("created_at", -1)],
+            skip=skip,
+            limit=limit,
+        )
+
+    def count_by_repo(self, repo_id: str | ObjectId) -> int:
+        return self.collection.count_documents({"repo_id": self._to_object_id(repo_id)})
+
+    # Methods from pipeline-backend
     def create_scan_job(
         self,
         *,
@@ -43,26 +67,25 @@ class ScanJobsRepository(MongoRepositoryBase):
             "updated_at": now,
         }
 
-        result = self.db[self.collections.scan_jobs_collection].insert_one(payload)
+        result = self.collection.insert_one(payload)
         payload["id"] = str(result.inserted_id)
         return payload
 
     def get_scan_job(self, job_id: str) -> Optional[Dict[str, Any]]:
-        doc = self.db[self.collections.scan_jobs_collection].find_one(
-            {"_id": ObjectId(job_id)}
-        )
-        return self._serialize(doc)
+        # This returns a dict, unlike get() which returns a model
+        doc = self.collection.find_one({"_id": ObjectId(job_id)})
+        return self._serialize(doc) if doc else None
 
     def update_scan_job(
         self, job_id: str, updates: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
         updates["updated_at"] = datetime.utcnow()
-        doc = self.db[self.collections.scan_jobs_collection].find_one_and_update(
+        doc = self.collection.find_one_and_update(
             {"_id": ObjectId(job_id)},
             {"$set": updates},
             return_document=ReturnDocument.AFTER,
         )
-        return self._serialize(doc)
+        return self._serialize(doc) if doc else None
 
     def list_scan_jobs_paginated(
         self,
@@ -81,29 +104,22 @@ class ScanJobsRepository(MongoRepositoryBase):
         if status:
             query["status"] = status
 
-        collection = self.db[self.collections.scan_jobs_collection]
-        total = collection.count_documents(query)
+        total = self.collection.count_documents(query)
         cursor = (
-            collection.find(query).sort("created_at", -1).skip(skip).limit(page_size)
+            self.collection.find(query)
+            .sort("created_at", -1)
+            .skip(skip)
+            .limit(page_size)
         )
         items = [self._serialize(doc) for doc in cursor]
         return {"items": items, "total": total}
 
     def list_jobs_by_status(self, status: str) -> List[Dict[str, Any]]:
-        cursor = (
-            self.db[self.collections.scan_jobs_collection]
-            .find({"status": status})
-            .sort("created_at", -1)
-        )
+        cursor = self.collection.find({"status": status}).sort("created_at", -1)
         return [self._serialize(doc) for doc in cursor]
 
     def list_scan_jobs(self, limit: int = 50) -> List[Dict[str, Any]]:
-        cursor = (
-            self.db[self.collections.scan_jobs_collection]
-            .find()
-            .sort("created_at", -1)
-            .limit(limit)
-        )
+        cursor = self.collection.find().sort("created_at", -1).limit(limit)
         return [self._serialize(doc) for doc in cursor]
 
     def claim_job(
@@ -112,7 +128,7 @@ class ScanJobsRepository(MongoRepositoryBase):
         now = datetime.utcnow()
         lock_until = now + timedelta(seconds=grace_seconds)
 
-        doc = self.db[self.collections.scan_jobs_collection].find_one_and_update(
+        doc = self.collection.find_one_and_update(
             {"status": status},
             {
                 "$set": {
@@ -129,14 +145,12 @@ class ScanJobsRepository(MongoRepositoryBase):
         return self._serialize(doc) if doc else None
 
     def find_job_by_component_key(self, component_key: str) -> Optional[Dict[str, Any]]:
-        doc = self.db[self.collections.scan_jobs_collection].find_one(
-            {"component_key": component_key}
-        )
-        return self._serialize(doc)
+        doc = self.collection.find_one({"component_key": component_key})
+        return self._serialize(doc) if doc else None
 
     def find_stalled_jobs(self, older_than_minutes: int = 10) -> List[Dict[str, Any]]:
         cutoff = datetime.utcnow() - timedelta(minutes=older_than_minutes)
-        cursor = self.db[self.collections.scan_jobs_collection].find(
+        cursor = self.collection.find(
             {
                 "status": ScanJobStatus.running.value,
                 "last_started_at": {"$lt": cutoff},
@@ -144,5 +158,12 @@ class ScanJobsRepository(MongoRepositoryBase):
         )
         return [self._serialize(doc) for doc in cursor]
 
+    def _serialize(self, doc: Dict[str, Any]) -> Dict[str, Any]:
+        if not doc:
+            return {}
+        if "_id" in doc:
+            doc["id"] = str(doc.pop("_id"))
+        return doc
 
-__all__ = ["ScanJobsRepository"]
+
+__all__ = ["ScanJobRepository"]

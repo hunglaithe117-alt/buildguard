@@ -5,8 +5,11 @@ from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 
-from app.domain.entities import ImportedRepository, ImportStatus
-from app.repositories.base import BaseRepository
+from buildguard_common.models.imported_repository import (
+    ImportedRepository,
+    ImportStatus,
+)
+from buildguard_common.repositories.base import BaseRepository
 
 
 class ImportedRepositoryRepository(BaseRepository[ImportedRepository]):
@@ -40,6 +43,14 @@ class ImportedRepositoryRepository(BaseRepository[ImportedRepository]):
     ) -> Optional[ImportedRepository]:
         data["updated_at"] = datetime.now(timezone.utc)
         return super().update(repo_id, data)
+
+    def update_repository(
+        self, repo_id: str | ObjectId, data: Dict[str, Any]
+    ) -> Optional[ImportedRepository]:
+        return self.update(repo_id, data)
+
+    def get_repository(self, repo_id: str | ObjectId) -> Optional[ImportedRepository]:
+        return self.get(repo_id)
 
     def list_by_user(
         self, user_id: str | ObjectId, status: Optional[ImportStatus] = None

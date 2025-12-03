@@ -23,6 +23,19 @@ from buildguard_common.tasks import (
 logger = logging.getLogger(__name__)
 
 
+def get_selected_features(db, build_sample: BuildSample) -> List[str] | None:
+    if not build_sample.dataset_import_job_id:
+        return None
+
+    job_doc = db["dataset_import_jobs"].find_one(
+        {"_id": build_sample.dataset_import_job_id}
+    )
+    if not job_doc:
+        return None
+
+    return job_doc.get("selected_features")
+
+
 @celery_app.task(
     bind=True,
     base=PipelineTask,
@@ -54,7 +67,10 @@ def extract_build_log_features(self: PipelineTask, build_id: str) -> Dict[str, A
         return {}
 
     extractor = BuildLogExtractor()
-    return extractor.extract(build_sample, workflow_run, repo)
+    selected_features = get_selected_features(self.db, build_sample)
+    return extractor.extract(
+        build_sample, workflow_run, repo, selected_features=selected_features
+    )
 
 
 @celery_app.task(
@@ -80,8 +96,9 @@ def extract_git_features(self: PipelineTask, build_id: str) -> Dict[str, Any]:
     from app.services.extracts.git_feature_extractor import GitFeatureExtractor
 
     extractor = GitFeatureExtractor(self.db)
+    selected_features = get_selected_features(self.db, build_sample)
     features = extractor.extract(
-        build_sample, None, repo
+        build_sample, None, repo, selected_features=selected_features
     )  # GitFeatureExtractor might not need workflow_run?
     # Wait, I updated GitFeatureExtractor to take workflow_run optional.
     # But here I pass None. It should be fine if it doesn't use it.
@@ -131,7 +148,10 @@ def extract_repo_snapshot_features(self: PipelineTask, build_id: str) -> Dict[st
         return {}
 
     extractor = RepoSnapshotExtractor(self.db)
-    return extractor.extract(build_sample, workflow_run, repo)
+    selected_features = get_selected_features(self.db, build_sample)
+    return extractor.extract(
+        build_sample, workflow_run, repo, selected_features=selected_features
+    )
 
 
 @celery_app.task(
@@ -167,7 +187,10 @@ def extract_github_discussion_features(
         return {}
 
     extractor = GitHubDiscussionExtractor(self.db)
-    return extractor.extract(build_sample, workflow_run, repo)
+    selected_features = get_selected_features(self.db, build_sample)
+    return extractor.extract(
+        build_sample, workflow_run, repo, selected_features=selected_features
+    )
 
 
 @celery_app.task(

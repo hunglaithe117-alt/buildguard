@@ -34,6 +34,7 @@ class RepoSnapshotExtractor(BaseExtractor):
         build_sample: BuildSample,
         workflow_run: Optional[WorkflowRunRaw] = None,
         repo: Optional[ImportedRepository] = None,
+        selected_features: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         if not workflow_run or not repo:
             return self._empty_result()
@@ -82,15 +83,89 @@ class RepoSnapshotExtractor(BaseExtractor):
             # 2. Snapshot metrics (SLOC, Tests) using worktree
             # Lock during worktree operations as they modify .git/worktrees
             with repo_lock(str(repo.id)):
+                # Determine language to analyze
+                # Default to all source languages if not specified in config (though current logic iterates)
+                # But for generic extractor, we might want to target specific language from feature config
+                # For now, we iterate all source languages and aggregate or take the main one.
+                # To support "gh_sloc" which is usually total, we might sum up.
+                # But if we want "java_sloc", we need language specific.
+
+                # Refactor: Return a dict keyed by language or aggregated?
+                # The current implementation iterates and overwrites `snapshot_metrics`.
+                # This seems like a bug in original code or it assumes single language.
+                # Let's fix it to aggregate or pick main language.
+
+                snapshot_metrics = {
+                    "gh_sloc": 0,
+                    "gh_test_lines_per_kloc": 0.0,
+                    "gh_test_cases_per_kloc": 0.0,
+                    "gh_asserts_case_per_kloc": 0.0,
+                }
+
+                # If repo has multiple languages, we might want to sum SLOC?
+                # For now, let's stick to the original logic but make it safer:
+                # If we want to support specific language extraction, we need to pass it.
+                # But `extract` method signature is generic.
+                # We can iterate all languages and sum up SLOC, Test Lines, etc.
+
+                total_sloc = 0
+                total_test_lines = 0
+                total_test_cases = 0
+                total_asserts = 0
+
                 for source_lang in repo.source_languages:
-                    snapshot_metrics = self._analyze_snapshot(
+                    lang_metrics = self._analyze_snapshot(
                         repo_path, effective_sha, source_lang.value.lower()
                     )
+                    total_sloc += lang_metrics.get("gh_sloc", 0)
+                    # Note: per_kloc metrics cannot be simply summed. We need raw counts first.
+                    # _analyze_snapshot returns computed metrics + raw counts?
+                    # It currently returns computed. We should update _analyze_snapshot to return raw counts too.
+
+                    # For now, let's assume we use the MAIN language for metrics if multiple.
+                    # Or just sum SLOC and re-calculate ratios.
+                    # Let's modify _analyze_snapshot to return raw counts.
+                    pass
+
+                # RE-IMPLEMENTATION of _analyze_snapshot call loop
+                # We will modify _analyze_snapshot to return raw counts in next step.
+                # Here we just prepare the aggregation logic.
+
+                raw_stats = {"sloc": 0, "test_lines": 0, "test_cases": 0, "asserts": 0}
+
+                for source_lang in repo.source_languages:
+                    lang_stats = self._analyze_snapshot_raw(
+                        repo_path, effective_sha, source_lang.value.lower()
+                    )
+                    raw_stats["sloc"] += lang_stats["sloc"]
+                    raw_stats["test_lines"] += lang_stats["test_lines"]
+                    raw_stats["test_cases"] += lang_stats["test_cases"]
+                    raw_stats["asserts"] += lang_stats["asserts"]
+
+                # Calculate final metrics
+                final_metrics = {}
+                final_metrics["gh_sloc"] = raw_stats["sloc"]
+
+                if raw_stats["sloc"] > 0:
+                    kloc = raw_stats["sloc"] / 1000.0
+                    final_metrics["gh_test_lines_per_kloc"] = (
+                        raw_stats["test_lines"] / kloc
+                    )
+                    final_metrics["gh_test_cases_per_kloc"] = (
+                        raw_stats["test_cases"] / kloc
+                    )
+                    final_metrics["gh_asserts_case_per_kloc"] = (
+                        raw_stats["asserts"] / kloc
+                    )
+                else:
+                    final_metrics["gh_test_lines_per_kloc"] = 0.0
+                    final_metrics["gh_test_cases_per_kloc"] = 0.0
+                    final_metrics["gh_asserts_case_per_kloc"] = 0.0
 
             return {
                 "gh_repo_age": age,
                 "gh_repo_num_commits": num_commits,
-                **snapshot_metrics,
+                **final_metrics,
                 # Metadata fields
                 "gh_project_name": repo.full_name,
                 "gh_is_pr": is_pr,
@@ -105,7 +180,13 @@ class RepoSnapshotExtractor(BaseExtractor):
                     else repo.ci_provider
                 ),
                 "gh_build_started_at": workflow_run.created_at,
+                "gh_build_started_at": workflow_run.created_at,
             }
+
+            if selected_features:
+                return {k: v for k, v in result.items() if k in selected_features}
+
+            return result
 
         except Exception as e:
             logger.error(
@@ -209,29 +290,21 @@ class RepoSnapshotExtractor(BaseExtractor):
 
         return age_days, num_commits
 
-    def _analyze_snapshot(
+    def _analyze_snapshot_raw(
         self, repo_path: Path, commit_sha: str, language: str | None
     ) -> Dict[str, int]:
         stats = {
-            "gh_sloc": 0,
-            "gh_test_lines_per_kloc": 0.0,
-            "gh_test_cases_per_kloc": 0.0,
-            "gh_asserts_case_per_kloc": 0.0,
+            "sloc": 0,
+            "test_lines": 0,
+            "test_cases": 0,
+            "asserts": 0,
         }
-
-        # Counters for absolute values
-        total_sloc = 0
-        total_test_lines = 0
-        total_test_cases = 0
-        total_asserts = 0
 
         # Create temporary worktree
         with tempfile.TemporaryDirectory() as tmp_dir:
             worktree_path = Path(tmp_dir) / "worktree"
             try:
                 # git worktree add -f <path> <sha>
-                # -f to force if branch is already checked out elsewhere (though we use SHA)
-                # Detached HEAD is fine
                 subprocess.run(
                     ["git", "worktree", "add", "-f", str(worktree_path), commit_sha],
                     cwd=repo_path,
@@ -250,34 +323,29 @@ class RepoSnapshotExtractor(BaseExtractor):
 
                     try:
                         # Count lines
-                        # Use 'wc -l' or read file. Reading might be slow for huge repos but accurate.
-                        # Let's read with error handling
                         with open(file_path, "r", errors="ignore") as f:
                             lines = f.readlines()
                             line_count = len(lines)
                             content = "".join(lines)
 
                         if _is_test_file(rel_path):
-                            total_test_lines += line_count
-                            total_test_cases += self._count_tests(content, language)
-                            total_asserts += self._count_asserts(content, language)
+                            stats["test_lines"] += line_count
+                            stats["test_cases"] += self._count_tests(content, language)
+                            stats["asserts"] += self._count_asserts(content, language)
                         elif _is_source_file(rel_path):
-                            total_sloc += line_count
+                            stats["sloc"] += line_count
 
                     except Exception:
                         pass
 
             finally:
                 # Cleanup worktree
-                # git worktree remove <path>
-                # Need to run this from main repo
                 try:
                     subprocess.run(
                         ["git", "worktree", "remove", "-f", str(worktree_path)],
                         cwd=repo_path,
                         capture_output=True,
                     )
-                    # Prune to be safe
                     subprocess.run(
                         ["git", "worktree", "prune"],
                         cwd=repo_path,
@@ -285,19 +353,6 @@ class RepoSnapshotExtractor(BaseExtractor):
                     )
                 except Exception:
                     pass
-
-        # Calculate per-KLOC metrics
-        stats["gh_sloc"] = total_sloc
-
-        if total_sloc > 0:
-            kloc = total_sloc / 1000.0
-            stats["gh_test_lines_per_kloc"] = total_test_lines / kloc
-            stats["gh_test_cases_per_kloc"] = total_test_cases / kloc
-            stats["gh_asserts_case_per_kloc"] = total_asserts / kloc
-        else:
-            stats["gh_test_lines_per_kloc"] = 0.0
-            stats["gh_test_cases_per_kloc"] = 0.0
-            stats["gh_asserts_case_per_kloc"] = 0.0
 
         return stats
 

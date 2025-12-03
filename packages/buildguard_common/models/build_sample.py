@@ -10,6 +10,7 @@ class BuildSample(BaseEntity):
     status: str = "pending"  # pending, completed, failed
     error_message: str | None = None
     is_missing_commit: bool = False
+    dataset_import_job_id: PyObjectId | None = None
 
     # Log features
     tr_build_id: int | None = None

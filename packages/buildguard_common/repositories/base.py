@@ -3,7 +3,7 @@
 from abc import ABC
 from enum import Enum
 from types import SimpleNamespace
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -38,7 +38,10 @@ class BaseRepository(ABC, Generic[T]):
     """Base repository providing common CRUD operations for MongoDB collections."""
 
     def __init__(
-        self, db: Database, collection_name: CollectionName | str, model_class: Type[T]
+        self,
+        db: Database,
+        collection_name: Union[CollectionName, str],
+        model_class: Type[T],
     ):
         self.db = db
         self.collection_name: str = (
@@ -49,7 +52,7 @@ class BaseRepository(ABC, Generic[T]):
         self.collection: Collection = db[self.collection_name]
         self.model_class = model_class
 
-    def find_by_id(self, entity_id: str | ObjectId) -> Optional[T]:
+    def find_by_id(self, entity_id: Union[str, ObjectId]) -> Optional[T]:
         identifier = self._to_object_id(entity_id)
         if identifier is None:
             return None
@@ -82,8 +85,8 @@ class BaseRepository(ABC, Generic[T]):
         return self.find_by_id(result.inserted_id)
 
     def update(
-        self, entity_id: str | ObjectId, update_data: Dict[str, Any]
-    ) -> T | None:
+        self, entity_id: Union[str, ObjectId], update_data: Dict[str, Any]
+    ) -> Optional[T]:
         identifier = self._to_object_id(entity_id)
         if identifier is None:
             return None
@@ -91,24 +94,26 @@ class BaseRepository(ABC, Generic[T]):
         return self.find_by_id(identifier)
 
     def update_one(
-        self, entity_id: str | ObjectId, update_data: Dict[str, Any]
-    ) -> T | None:
+        self, entity_id: Union[str, ObjectId], update_data: Dict[str, Any]
+    ) -> Optional[T]:
         # Alias for update to match some usages
         return self.update(entity_id, update_data)
 
-    def delete(self, entity_id: str | ObjectId) -> bool:
+    def delete(self, entity_id: Union[str, ObjectId]) -> bool:
         identifier = self._to_object_id(entity_id)
         if identifier is None:
             return False
         result = self.collection.delete_one({"_id": identifier})
         return result.deleted_count > 0
 
-    def _to_model(self, doc: Dict[str, Any] | None) -> Optional[T]:
+    def _to_model(self, doc: Optional[Dict[str, Any]]) -> Optional[T]:
         if not doc:
             return None
         return self.model_class.model_validate(doc)
 
-    def _to_object_id(self, entity_id: str | ObjectId | None) -> Optional[ObjectId]:
+    def _to_object_id(
+        self, entity_id: Union[str, ObjectId, None]
+    ) -> Optional[ObjectId]:
         if entity_id is None:
             return None
         if isinstance(entity_id, ObjectId):
@@ -125,7 +130,7 @@ class MongoRepositoryBase:
     with collection names rather than Pydantic models.
     """
 
-    def __init__(self, db: Database, collections: Any | None = None):
+    def __init__(self, db: Database, collections: Optional[Any] = None):
         self.db = db
         default = {
             "projects_collection": CollectionName.REPOSITORIES.value,

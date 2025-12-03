@@ -37,7 +37,7 @@ services:
 
   # RabbitMQ Message Broker (Shared)
   rabbitmq:
-    image: rabbitmq:3.12-management
+    image: rabbitmq:management
     container_name: buildguard-rabbitmq
     ports:
       - "5672:5672"
@@ -169,7 +169,7 @@ services:
     environment:
       PIPELINE_CONFIG: /app/config/pipeline.yml
       HOME: /tmp
-      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_URI: mongodb://travis:travis@mongo:27017
       CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
       REDIS_URL: redis://redis:6379/0
       SONAR_SCANNER_OPTS: "-Xmx2g -Xms512m"
@@ -197,7 +197,7 @@ services:
     environment:
       PIPELINE_CONFIG: /app/config/pipeline.yml
       HOME: /tmp
-      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_URI: mongodb://travis:travis@mongo:27017
       CELERY_BROKER_URL: amqp://myuser:mypass@rabbitmq:5672//
     volumes:
       - ./config/pipeline.yml:/app/config/pipeline.yml:ro

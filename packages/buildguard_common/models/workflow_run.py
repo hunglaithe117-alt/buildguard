@@ -15,3 +15,4 @@ class WorkflowRunRaw(BaseEntity):
     updated_at: datetime
     raw_payload: Dict[str, Any]
     log_fetched: bool = False
+    log_expired: bool = False

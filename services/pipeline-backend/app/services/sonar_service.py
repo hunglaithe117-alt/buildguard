@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 
 from app.repositories import ScanJobsRepository, ProjectsRepository
 from app.tasks.sonar import run_scan_job, export_metrics
-from app.models import ScanJobStatus
+from app.domain.entities import ScanJobStatus
 from pymongo.database import Database
 
 logger = logging.getLogger(__name__)

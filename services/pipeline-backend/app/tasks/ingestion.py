@@ -7,7 +7,7 @@ from celery.utils.log import get_task_logger
 
 from app.celery_app import celery_app
 from app.core.config import settings
-from app.models import ProjectStatus
+from app.domain.entities import ImportStatus
 from app.repositories import ProjectsRepository, ScanJobsRepository
 from buildguard_common.mongo import get_database
 from app.services.ingestion.csv_pipeline import CSVIngestionPipeline
@@ -41,7 +41,7 @@ def ingest_project(self, project_id: str) -> dict:
 
     projects_repo.update_project(
         project_id,
-        import_status=ProjectStatus.IMPORTING.value,
+        import_status=ImportStatus.IMPORTING.value,
         total_builds=summary.get("total_builds", 0),
         total_commits=summary.get("total_commits", 0),
     )
@@ -63,7 +63,7 @@ def ingest_project(self, project_id: str) -> dict:
     total_commits = int(len(df_unique))
     if total_commits == 0:
         projects_repo.update_project(
-            project_id, import_status=ProjectStatus.IMPORTED.value
+            project_id, import_status=ImportStatus.IMPORTED.value
         )
         return {"project_id": project_id, "queued": 0}
 

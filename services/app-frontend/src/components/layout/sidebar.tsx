@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { BadgeCheck, BarChart, Home, Key } from "lucide-react";
+import { BadgeCheck, BarChart, Home, Key, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
@@ -20,6 +20,11 @@ const navigation = [
     label: "Tokens",
     href: "/admin/tokens",
     icon: Key,
+  },
+  {
+    label: "Dataset Builder",
+    href: "/admin/repos/import",
+    icon: FileSpreadsheet,
   },
 ];
 

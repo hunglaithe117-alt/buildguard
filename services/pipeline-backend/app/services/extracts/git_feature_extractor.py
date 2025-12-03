@@ -38,6 +38,7 @@ class GitFeatureExtractor(BaseExtractor):
         build_sample: BuildSample,
         workflow_run: Optional[WorkflowRunRaw] = None,
         repo: Optional[ImportedRepository] = None,
+        selected_features: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         if not repo:
             logger.warning("Missing repo for GitFeatureExtractor")
@@ -96,7 +97,12 @@ class GitFeatureExtractor(BaseExtractor):
                         source_lang.value.lower(),
                     )
 
-            return {**build_stats, **team_stats, **diff_stats}
+            result = {**build_stats, **team_stats, **diff_stats}
+
+            if selected_features:
+                return {k: v for k, v in result.items() if k in selected_features}
+
+            return result
 
         except Exception as e:
             logger.error(

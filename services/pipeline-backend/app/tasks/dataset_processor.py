@@ -10,7 +10,6 @@ from buildguard_common.models.dataset import TrainingDataset, DatasetStatus
 from buildguard_common.models.feature import FeatureDefinition
 from app.repositories import ProjectsRepository, BuildSampleRepository
 from app.services.extractor_service import ExtractorService
-from app.models import ProjectStatus
 
 logger = get_task_logger(__name__)
 

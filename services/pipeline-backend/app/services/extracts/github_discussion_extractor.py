@@ -25,6 +25,7 @@ class GitHubDiscussionExtractor(BaseExtractor):
         build_sample: BuildSample,
         workflow_run: Optional[WorkflowRunRaw] = None,
         repo: Optional[ImportedRepository] = None,
+        selected_features: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         if not workflow_run or not repo:
             return self._empty_result()
@@ -172,12 +173,13 @@ class GitHubDiscussionExtractor(BaseExtractor):
                                 f"Failed to fetch issue comments for PR {pr_number}: {e}"
                             )
 
-                return {
-                    "gh_num_issue_comments": num_issue_comments,
-                    "gh_num_commit_comments": num_commit_comments,
-                    "gh_num_pr_comments": num_pr_comments,
                     "gh_description_complexity": description_complexity,
                 }
+                
+                if selected_features:
+                    return {k: v for k, v in result.items() if k in selected_features}
+                    
+                return result
 
         except Exception as e:
             logger.error(

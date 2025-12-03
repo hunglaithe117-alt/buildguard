@@ -133,9 +133,9 @@ def import_repository(
 
         with client_context as gh:
             # Try to get data from available_repo first to avoid re-fetching
-            available_repo = self.db[CollectionName.AVAILABLE_REPOSITORIES.value].find_one(
-                {"user_id": ObjectId(user_id), "full_name": full_name}
-            )
+            available_repo = self.db[
+                CollectionName.AVAILABLE_REPOSITORIES.value
+            ].find_one({"user_id": ObjectId(user_id), "full_name": full_name})
 
             repo_data = None
             if available_repo and available_repo.get("metadata"):
@@ -313,7 +313,9 @@ def import_repository(
     name=TASK_DOWNLOAD_LOGS,
     queue="collect_workflow_logs",
 )
-def download_job_logs(self: PipelineTask, repo_id: str, run_id: int) -> Dict[str, Any]:
+def download_job_logs(
+    self: PipelineTask, repo_id: str, run_id: int, job_id: str = None
+) -> Dict[str, Any]:
     repo_repo = ImportedRepositoryRepository(self.db)
     repo = repo_repo.find_by_id(repo_id)
     if not repo:
@@ -373,6 +375,29 @@ def download_job_logs(self: PipelineTask, repo_id: str, run_id: int) -> Dict[str
             "Rate limit hit in download_job_logs. Retrying in %s seconds.", wait
         )
         raise self.retry(exc=e, countdown=wait)
+    except Exception as e:
+        error_msg = str(e).lower()
+        if (
+            "404" in error_msg
+            or "410" in error_msg
+            or "gone" in error_msg
+            or "not found" in error_msg
+        ):
+            logger.warning(
+                f"Logs expired or not found for run {run_id} in {full_name}: {e}"
+            )
+            # Mark as expired so we don't retry
+            workflow_run_repo = WorkflowRunRepository(self.db)
+            workflow_run = workflow_run_repo.find_by_repo_and_run_id(repo_id, run_id)
+            if workflow_run:
+                workflow_run_repo.update_one(
+                    str(workflow_run.id), {"log_fetched": False, "log_expired": True}
+                )
+            return {"status": "expired", "repo_id": repo_id, "run_id": run_id}
+        else:
+            # For other errors, we might want to retry or just log error
+            logger.error(f"Failed to download logs for run {run_id}: {e}")
+            raise e
 
     # Update WorkflowRunRaw.log_fetched = true
     workflow_run_repo = WorkflowRunRepository(self.db)
@@ -381,7 +406,7 @@ def download_job_logs(self: PipelineTask, repo_id: str, run_id: int) -> Dict[str
         workflow_run_repo.update_one(str(workflow_run.id), {"log_fetched": True})
 
     # Trigger orchestrator
-    celery_app.send_task(TASK_PROCESS_WORKFLOW, args=[repo_id, run_id])
+    celery_app.send_task(TASK_PROCESS_WORKFLOW, args=[repo_id, run_id, job_id])
 
     return {
         "repo_id": repo_id,

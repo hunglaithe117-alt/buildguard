@@ -10,7 +10,7 @@ import httpx
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
-from app.config import settings
+from app.core.config import settings
 from app.domain.entities import OAuthIdentity
 from app.services.user_service import upsert_github_identity
 from buildguard_common.repositories.base import CollectionName

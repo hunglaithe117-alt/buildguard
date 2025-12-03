@@ -5,11 +5,10 @@ from celery.utils.log import get_task_logger
 
 from app.celery_app import celery_app
 from app.core.config import settings
-from app.models import ProjectStatus
 from app.repositories import ProjectsRepository, ScanJobsRepository
 from buildguard_common.mongo import get_database
 from app.tasks.sonar import run_scan_job
-from pipeline.sonar import normalize_repo_url
+from app.services.sonar.runner import normalize_repo_url
 
 logger = get_task_logger(__name__)
 

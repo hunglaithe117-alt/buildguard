@@ -16,7 +16,8 @@ class FeatureSourceType(str, Enum):
     METADATA = "metadata"  # Basic info (Repo name, Commit hash)
     CSV_MAPPED = "csv_mapped"  # Directly from uploaded CSV column
     GIT_EXTRACT = "git_extract"  # Calculated from Git (Diff, Blame)
-    SONAR_METRIC = "sonar"  # Fetched from SonarQube
+    BUILD_LOG_EXTRACT = "build_log_extract"  # Extracted from build logs
+    REPO_SNAPSHOT_EXTRACT = "repo_snapshot_extract"  # Extracted from repo snapshot
     DERIVED = "derived"  # Calculated from other features
 
 

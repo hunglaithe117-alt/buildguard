@@ -24,6 +24,8 @@ celery_app = Celery(
         "app.tasks.github_ingestion",
         "app.tasks.processing",
         "app.tasks.extractors",
+        "app.tasks.extractors",
+        "app.tasks.dataset_import",
     ],
 )
 
@@ -78,6 +80,7 @@ celery_app.conf.update(
         Queue("import_repo"),
         Queue("collect_workflow_logs"),
         Queue("data_processing"),
+        Queue("ingestion"),
     ),
 )
 

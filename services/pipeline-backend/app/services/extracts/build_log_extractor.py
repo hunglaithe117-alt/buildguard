@@ -1,17 +1,23 @@
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from pymongo.database import Database
 from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
 from app.services.extracts.log_parser import TestLogParser
 from app.services.extracts.base import BaseExtractor
-from typing import Optional
+from app.repositories import WorkflowRunRepository, ImportedRepositoryRepository
 
 logger = logging.getLogger(__name__)
 
 
 class BuildLogExtractor(BaseExtractor):
-    def __init__(self, log_dir: Path = Path("../repo-data/job_logs")):
+    def __init__(
+        self,
+        db: Optional[Database] = None,
+        log_dir: Path = Path("../repo-data/job_logs"),
+    ):
+        self.db = db
         self.log_dir = log_dir
         self.parser = TestLogParser()
 
@@ -20,10 +26,23 @@ class BuildLogExtractor(BaseExtractor):
         build_sample: BuildSample,
         workflow_run: Optional[WorkflowRunRaw] = None,
         repo: Optional[ImportedRepository] = None,
+        selected_features: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
+        # Fetch dependencies if not provided
+        if not workflow_run and self.db:
+            repo_run = WorkflowRunRepository(self.db).get_by_run_id(
+                build_sample.workflow_run_id
+            )
+            if repo_run:
+                workflow_run = repo_run
+
+        if not repo and self.db:
+            repo = ImportedRepositoryRepository(self.db).get_by_id(build_sample.repo_id)
+
         if not workflow_run or not repo:
             logger.warning("Missing workflow_run or repo for BuildLogExtractor")
             return self._empty_result()
+
         repo_id = str(build_sample.repo_id)
         run_id = str(build_sample.workflow_run_id)
 
@@ -47,6 +66,18 @@ class BuildLogExtractor(BaseExtractor):
         tests_skipped_sum = 0
         tests_ok_sum = 0
         test_duration_sum = 0.0
+
+        # Check if a specific framework is requested in extraction_config
+        # Note: extraction_config is passed via FeatureDefinition, but here we are in the extractor.
+        # The extractor extracts ALL features at once usually.
+        # If we want to support specific framework extraction, we might need to filter.
+        # However, BuildLogExtractor typically parses everything it finds.
+        # The `extraction_config` in FeatureDefinition is used by ExtractorService to pick the right value from the result dict.
+        # So, the extractor should just extract everything as before, but ensure the keys match what ExtractorService expects.
+        # The current implementation returns "tr_log_frameworks_all", which is a list.
+        # If FeatureDefinition has `extraction_config={"key": "tr_log_tests_run_sum"}`, it works.
+        # If we want `tests_run_sum` for a SPECIFIC framework, we would need to change the return structure or the parser.
+        # For now, let's assume we extract aggregate metrics for the build.
 
         for log_file in log_files:
             try:
@@ -109,7 +140,15 @@ class BuildLogExtractor(BaseExtractor):
             "tr_log_testduration_sum": test_duration_sum,
             "tr_status": tr_status,
             "tr_duration": tr_duration,
+            "tr_duration": tr_duration,
         }
+
+        if selected_features:
+            # Always keep some core identifiers if needed, or rely on caller to handle partial updates.
+            # BuildSample update just merges, so filtering is fine.
+            return {k: v for k, v in result.items() if k in selected_features}
+
+        return result
 
     def _empty_result(self) -> Dict[str, Any]:
         return {

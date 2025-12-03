@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
     queue="data_processing",
 )
 def process_workflow_run(
-    self: PipelineTask, repo_id: str, workflow_run_id: int
+    self: PipelineTask, repo_id: str, workflow_run_id: int, job_id: str = None
 ) -> Dict[str, Any]:
     workflow_run_repo = WorkflowRunRepository(self.db)
     build_sample_repo = BuildSampleRepository(self.db)
@@ -47,8 +47,15 @@ def process_workflow_run(
             status="pending",
             tr_build_number=workflow_run.run_number,
             tr_original_commit=workflow_run.head_sha,
+            dataset_import_job_id=ObjectId(job_id) if job_id else None,
         )
         build_sample = build_sample_repo.insert_one(build_sample)
+    elif job_id:
+        # Update existing build sample with job_id if not present
+        if not build_sample.dataset_import_job_id:
+            build_sample_repo.update_one(
+                str(build_sample.id), {"dataset_import_job_id": ObjectId(job_id)}
+            )
 
     build_id = str(build_sample.id)
     # Create or get BuildSample

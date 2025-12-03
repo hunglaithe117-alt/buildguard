@@ -20,6 +20,8 @@ from app.api import (
     compare,
     gate,
     datasets,
+    dataset_builder,
+    dataset_features,
 )
 from app.middleware.request_logging import RequestLoggingMiddleware
 
@@ -62,6 +64,8 @@ app.include_router(tokens.router, prefix="/api/tokens", tags=["Tokens"])
 app.include_router(compare.router, prefix="/api", tags=["Compare"])
 app.include_router(gate.router, prefix="/api/gate", tags=["Gate"])
 app.include_router(datasets.router, prefix="/api", tags=["Datasets"])
+app.include_router(dataset_builder.router, prefix="/api", tags=["Dataset Builder"])
+app.include_router(dataset_features.router, prefix="/api", tags=["Dataset Features"])
 
 
 @app.get("/")

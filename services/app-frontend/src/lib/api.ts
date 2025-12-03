@@ -357,3 +357,21 @@ export const usersApi = {
     return response.data;
   },
 };
+
+export const datasetFeaturesApi = {
+  getFeatures: async (jobId: string) => {
+    const response = await api.get<any[]>(`/datasets/${jobId}/features`);
+    return response.data;
+  },
+  startExtraction: async (
+    jobId: string,
+    selectedFeatures: string[],
+    extractorConfig: any = {}
+  ) => {
+    const response = await api.post<{ status: string; message: string }>(
+      `/datasets/${jobId}/start-extraction`,
+      { selected_features: selectedFeatures, extractor_config: extractorConfig }
+    );
+    return response.data;
+  },
+};

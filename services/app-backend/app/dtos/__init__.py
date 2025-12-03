@@ -1,5 +1,6 @@
 """Data Transfer Objects (DTOs) for API requests and responses"""
 
+from .base import BaseResponse
 from .auth import (
     AuthVerifyResponse,
     GithubLoginRequest,
@@ -72,4 +73,6 @@ __all__ = [
     "BuildSummary",
     "BuildDetail",
     "BuildListResponse",
+    # Base
+    "BaseResponse",
 ]

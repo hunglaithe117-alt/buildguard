@@ -2,17 +2,20 @@
 
 from bson import ObjectId
 from pymongo.database import Database
+from typing import Optional
 from redis import Redis
 
 from buildguard_common import GitHubClient, GitHubTokenPool, GithubConfigurationError
 from buildguard_common.github_auth import get_installation_token
 from buildguard_common.repositories.base import CollectionName
 
-_token_pool: GitHubTokenPool | None = None
+_token_pool: Optional[GitHubTokenPool] = None
 
 
 def _client_with_api_url(
-    api_url: str, token: str | None = None, token_pool: GitHubTokenPool | None = None
+    api_url: str,
+    token: Optional[str] = None,
+    token_pool: Optional[GitHubTokenPool] = None,
 ) -> GitHubClient:
     """Create a GitHubClient pointing to the configured API URL."""
     return GitHubClient(token=token, token_pool=token_pool, api_url=api_url)
@@ -35,8 +38,8 @@ def get_user_github_client(db: Database, user_id: str, api_url: str) -> GitHubCl
 def get_app_github_client(
     db: Database,
     installation_id: str,
-    app_id: str | None,
-    private_key: str | None,
+    app_id: Optional[str],
+    private_key: Optional[str],
     api_url: str,
     redis_client: Redis,
 ) -> GitHubClient:

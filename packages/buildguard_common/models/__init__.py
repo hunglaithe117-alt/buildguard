@@ -20,6 +20,7 @@ from .user import User
 from .feature import FeatureDefinition, FeatureDataType, FeatureSourceType
 from .dataset_template import DatasetTemplate
 from .dataset import TrainingDataset, DatasetStatus, FieldMapping
+from .dataset_import_job import DatasetImportJob, IngestionSourceType, IngestionStatus
 
 __all__ = [
     "BaseEntity",
@@ -48,4 +49,7 @@ __all__ = [
     "TrainingDataset",
     "DatasetStatus",
     "FieldMapping",
+    "DatasetImportJob",
+    "IngestionSourceType",
+    "IngestionStatus",
 ]

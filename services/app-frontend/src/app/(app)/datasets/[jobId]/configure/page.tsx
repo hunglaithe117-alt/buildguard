@@ -10,9 +10,20 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 
 type DatasetFeature = {
+    key: string;
     name: string;
     description?: string | null;
-    source_type?: string | null;
+    default_source?: string | null;
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+    build_log_extract: "Build Logs",
+    git_history_extract: "Git History",
+    repo_snapshot_extract: "Repo Snapshot",
+    github_api_extract: "GitHub API",
+    csv_mapped: "Manual Upload",
+    derived: "Derived",
+    metadata: "Metadata",
 };
 
 export default function ConfigureExtractionPage() {
@@ -35,7 +46,7 @@ export default function ConfigureExtractionPage() {
             const data = await datasetFeaturesApi.getFeatures(jobIdParam);
             setFeatures(data);
             // Default select all
-            setSelectedFeatures(new Set(data.map((f) => f.name)));
+            setSelectedFeatures(new Set(data.map((f) => f.key || f.name)));
         } catch (error) {
             toast({
                 title: "Error",
@@ -51,12 +62,12 @@ export default function ConfigureExtractionPage() {
         loadFeatures();
     }, [loadFeatures]);
 
-    const toggleFeature = (name: string) => {
+    const toggleFeature = (key: string) => {
         const newSelected = new Set(selectedFeatures);
-        if (newSelected.has(name)) {
-            newSelected.delete(name);
+        if (newSelected.has(key)) {
+            newSelected.delete(key);
         } else {
-            newSelected.add(name);
+            newSelected.add(key);
         }
         setSelectedFeatures(newSelected);
     };
@@ -85,11 +96,12 @@ export default function ConfigureExtractionPage() {
         }
     };
 
-    // Group features by source_type
+    // Group features by default_source
     const groupedFeatures = features.reduce<Record<string, DatasetFeature[]>>((acc, feature) => {
-        const type = feature.source_type || "Other";
-        if (!acc[type]) acc[type] = [];
-        acc[type].push(feature);
+        const rawType = feature.default_source || "other";
+        const label = SOURCE_LABELS[rawType.toLowerCase()] || "Other";
+        if (!acc[label]) acc[label] = [];
+        acc[label].push(feature);
         return acc;
     }, {});
 
@@ -99,29 +111,40 @@ export default function ConfigureExtractionPage() {
         <div className="container mx-auto py-10">
             <h1 className="text-3xl font-bold mb-6">Configure Extraction</h1>
 
-            <div className="grid gap-6">
-                {Object.entries(groupedFeatures).map(([type, list]) => (
-                    <Card key={type}>
-                        <CardHeader>
-                            <CardTitle>{type}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {list.map((feature) => (
-                                    <div key={feature.name} className="flex items-center space-x-2">
-                                        <Switch
-                                            id={feature.name}
-                                            checked={selectedFeatures.has(feature.name)}
-                                            onCheckedChange={() => toggleFeature(feature.name)}
-                                        />
-                                        <Label htmlFor={feature.name}>{feature.description || feature.name}</Label>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+            {features.length === 0 ? (
+                <div className="p-6 rounded-lg border text-sm text-muted-foreground">
+                    No features available for this job/template.
+                </div>
+            ) : (
+                <div className="grid gap-6">
+                    {Object.entries(groupedFeatures).map(([type, list]) => (
+                        <Card key={type}>
+                            <CardHeader>
+                                <CardTitle>{type}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {list.map((feature) => (
+                                        <div key={feature.key} className="flex items-center space-x-2">
+                                            <Switch
+                                                id={feature.key}
+                                                checked={selectedFeatures.has(feature.key)}
+                                                onCheckedChange={() => toggleFeature(feature.key)}
+                                            />
+                                            <Label htmlFor={feature.key} className="flex flex-col">
+                                                <span className="font-medium">{feature.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {feature.description || feature.key}
+                                                </span>
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
 
             <div className="mt-8 flex justify-end">
                 <Button onClick={handleStart} disabled={submitting}>

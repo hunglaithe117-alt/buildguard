@@ -2,14 +2,17 @@ import logging
 from typing import Any, Dict, List
 
 from bson import ObjectId
+from bson.errors import InvalidId
 from app.celery_app import celery_app
 from app.domain.entities import BuildSample
-from app.repositories import BuildSampleRepository, WorkflowRunRepository
+from app.repositories import (
+    BuildSampleRepository,
+    ImportedRepositoryRepository,
+    WorkflowRunRepository,
+)
 from app.services.extracts.build_log_extractor import BuildLogExtractor
-from app.services.extracts.github_discussion_extractor import GitHubDiscussionExtractor
+from app.services.extracts.github_discussion_extractor import GitHubApiExtractor
 from app.services.extracts.repo_snapshot_extractor import RepoSnapshotExtractor
-from app.services.heuristics import HeuristicEngine
-from app.services.notifications import NotificationService
 from app.workers import PipelineTask
 from app.utils.events import publish_build_update
 from buildguard_common.tasks import (
@@ -33,7 +36,33 @@ def get_selected_features(db, build_sample: BuildSample) -> List[str] | None:
     if not job_doc:
         return None
 
-    return job_doc.get("selected_features")
+    selected = job_doc.get("selected_features")
+    if not selected:
+        return None
+
+    # Already stored as keys
+    if all(isinstance(f, str) for f in selected):
+        return selected
+
+    # Convert stored ObjectIds (or strings) back to feature keys
+    feature_ids: List[ObjectId] = []
+    for item in selected:
+        if isinstance(item, ObjectId):
+            feature_ids.append(item)
+        elif isinstance(item, str):
+            try:
+                feature_ids.append(ObjectId(item))
+            except (InvalidId, TypeError):
+                continue
+
+    if not feature_ids:
+        return None
+
+    cursor = db["feature_definitions"].find(
+        {"_id": {"$in": feature_ids}}, {"key": 1}
+    )
+    keys = [doc["key"] for doc in cursor]
+    return keys or None
 
 
 @celery_app.task(
@@ -93,18 +122,13 @@ def extract_git_features(self: PipelineTask, build_id: str) -> Dict[str, Any]:
         logger.error(f"Repository {build_sample.repo_id} not found")
         return {}
 
-    from app.services.extracts.git_feature_extractor import GitFeatureExtractor
+    from app.services.extracts.git_feature_extractor import GitHistoryExtractor
 
-    extractor = GitFeatureExtractor(self.db)
+    extractor = GitHistoryExtractor(self.db)
     selected_features = get_selected_features(self.db, build_sample)
     features = extractor.extract(
         build_sample, None, repo, selected_features=selected_features
-    )  # GitFeatureExtractor might not need workflow_run?
-    # Wait, I updated GitFeatureExtractor to take workflow_run optional.
-    # But here I pass None. It should be fine if it doesn't use it.
-    # GitFeatureExtractor uses build_sample.tr_original_commit.
-    # I should check if it needs workflow_run.
-    # It doesn't seem to use it in my previous view.
+    )  # GitHistoryExtractor currently does not require workflow_run.
 
     # Save features immediately so they are available for subsequent tasks in the chain
     if features:
@@ -186,7 +210,7 @@ def extract_github_discussion_features(
         logger.error(f"Repository {build_sample.repo_id} not found")
         return {}
 
-    extractor = GitHubDiscussionExtractor(self.db)
+    extractor = GitHubApiExtractor(self.db)
     selected_features = get_selected_features(self.db, build_sample)
     return extractor.extract(
         build_sample, workflow_run, repo, selected_features=selected_features
@@ -242,28 +266,6 @@ def finalize_build_sample(
 
     build = build_sample_repo.find_by_id(ObjectId(build_id))
     if build:
-        # Apply Heuristics
-        try:
-            heuristic_engine = HeuristicEngine(self.db)
-            risk_factors = heuristic_engine.apply_all(build)
-            if risk_factors:
-                build_sample_repo.update_one(build_id, {"risk_factors": risk_factors})
-                merged_updates["risk_factors"] = risk_factors
-
-                # Send Alert
-                try:
-                    repo_repo = ImportedRepositoryRepository(self.db)
-                    repo = repo_repo.find_by_id(str(build.repo_id))
-                    shadow_mode = repo.shadow_mode if repo else False
-
-                    NotificationService().send_alert(
-                        build, risk_factors, shadow_mode=shadow_mode
-                    )
-                except Exception as ns_e:
-                    logger.error(f"Notification failed: {ns_e}")
-        except Exception as e:
-            logger.error(f"Failed to apply heuristics: {e}")
-
         publish_build_update(str(build.repo_id), build_id, merged_updates["status"])
 
     return {"status": merged_updates["status"], "build_id": build_id}

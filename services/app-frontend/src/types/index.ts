@@ -65,7 +65,6 @@ export interface BuildDetail extends Build {
   git_num_all_built_commits?: number;
   gh_by_core_team_member?: boolean;
   gh_num_commits_on_files_touched?: number;
-  risk_factors?: string[];
 }
 
 export interface CompareResponse {

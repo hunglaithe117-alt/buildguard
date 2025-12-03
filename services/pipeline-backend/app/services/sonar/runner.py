@@ -17,7 +17,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import pybreaker
 
-from app.core.config import SonarInstanceSettings, settings
+from app.core.config import SonarSettings, settings
 from app.services.s3_service import s3_service
 from app.services.sonar.commit_replay import (
     MissingForkCommitError,
@@ -75,10 +75,10 @@ def run_command(
 
 class SonarCommitRunner:
     def __init__(
-        self, project_key: str, instance: Optional[SonarInstanceSettings] = None
+        self, project_key: str, instance: Optional[SonarSettings] = None
     ) -> None:
         self.project_key = project_key
-        self.instance = instance or settings.sonarqube.get_instance()
+        self.instance = instance or settings.sonarqube
         base_dir = Path(settings.paths.default_workdir or (Path("/tmp") / "sonar-work"))
         self.work_dir = base_dir / self.instance.name / project_key
         self.repo_dir = self.work_dir / "repo"
@@ -455,7 +455,7 @@ class MetricsExporter:
         self.chunk_size = self.settings.sonarqube.measures.chunk_size
 
     @classmethod
-    def from_instance(cls, instance: SonarInstanceSettings) -> MetricsExporter:
+    def from_instance(cls, instance: SonarSettings) -> MetricsExporter:
         return cls(host=instance.host, token=instance.resolved_token())
 
     def _build_session(self) -> requests.Session:
@@ -521,7 +521,8 @@ class MetricsExporter:
 def get_runner_for_instance(
     project_key: str, instance_name: Optional[str] = None
 ) -> SonarCommitRunner:
-    instance = settings.sonarqube.get_instance(instance_name)
+    # instance_name is ignored as we only have one instance now
+    instance = settings.sonarqube
     cache_key = (instance.name, project_key)
     if cache_key not in _RUNNER_CACHE:
         _RUNNER_CACHE[cache_key] = SonarCommitRunner(project_key, instance=instance)

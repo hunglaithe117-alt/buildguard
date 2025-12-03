@@ -13,12 +13,15 @@ class FeatureDataType(str, Enum):
 
 
 class FeatureSourceType(str, Enum):
-    METADATA = "metadata"  # Basic info (Repo name, Commit hash)
-    CSV_MAPPED = "csv_mapped"  # Directly from uploaded CSV column
-    GIT_EXTRACT = "git_extract"  # Calculated from Git (Diff, Blame)
-    BUILD_LOG_EXTRACT = "build_log_extract"  # Extracted from build logs
-    REPO_SNAPSHOT_EXTRACT = "repo_snapshot_extract"  # Extracted from repo snapshot
-    DERIVED = "derived"  # Calculated from other features
+    """Source buckets for feature values. Keep string values stable for persistence."""
+
+    MANUAL_UPLOAD = "csv_mapped"  # From user-uploaded CSV/explicit mapping
+    BUILD_LOG = "build_log_extract"  # From CI job/build logs
+    GIT_HISTORY = "git_history_extract"  # From git lineage/diff over commits
+    REPO_SNAPSHOT = "repo_snapshot_extract"  # From repo checkout at a commit (SLOC, tests)
+    GITHUB_API = "github_api_extract"  # From GitHub REST/GraphQL (PR/issue/comments)
+    DERIVED = "derived"  # Computed from other features
+    METADATA = "metadata"  # Static identifiers (repo slug, commit SHA)
 
 
 class FeatureDefinition(BaseEntity):
@@ -37,7 +40,6 @@ class FeatureDefinition(BaseEntity):
     default_source: FeatureSourceType
 
     # Additional metadata for calculation (if needed)
-    # E.g., corresponding SonarQube metric key
     extraction_config: Optional[dict] = None
 
     is_active: bool = True

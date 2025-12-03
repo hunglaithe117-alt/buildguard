@@ -69,7 +69,7 @@ def ingest_project(self, project_id: str) -> dict:
 
     queued = 0
     max_retries = project.get("max_retries", settings.pipeline.default_retry_limit)
-    auto_scan = project.get("auto_sonar_scan", True)
+    auto_scan = project.get("auto_sonar_scan", False)
 
     for _, row in df_unique.iterrows():
         project_key = row["project_key"]

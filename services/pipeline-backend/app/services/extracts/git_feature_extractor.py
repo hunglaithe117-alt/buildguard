@@ -3,23 +3,24 @@ import shutil
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
-from git import Repo, Commit
+from git import Commit, Repo
 from pymongo.database import Database
 
 from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
-from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
+from app.repositories import WorkflowRunRepository
+from app.services.commit_replay import ensure_commit_exists
 from app.services.extracts.base import BaseExtractor
-from app.services.github.github_app import get_installation_token
-from app.utils.locking import repo_lock
 from app.services.extracts.diff_analyzer import (
     _count_test_cases,
     _is_doc_file,
     _is_source_file,
     _is_test_file,
 )
-from app.services.commit_replay import ensure_commit_exists
+from app.services.github.github_app import get_installation_token
+from buildguard_common.models.feature import FeatureSourceType
+from buildguard_common.utils.locking import repo_lock
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,31 @@ REPOS_DIR = Path("../repo-data/repos")
 REPOS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-class GitFeatureExtractor(BaseExtractor):
+class GitHistoryExtractor(BaseExtractor):
+    source = FeatureSourceType.GIT_HISTORY
+    supported_features = {
+        "git_prev_commit_resolution_status",
+        "git_prev_built_commit",
+        "tr_prev_build",
+        "git_all_built_commits",
+        "git_num_all_built_commits",
+        "gh_team_size",
+        "gh_by_core_team_member",
+        "gh_num_commits_on_files_touched",
+        "git_diff_src_churn",
+        "git_diff_test_churn",
+        "gh_diff_files_added",
+        "gh_diff_files_deleted",
+        "gh_diff_files_modified",
+        "gh_diff_tests_added",
+        "gh_diff_tests_deleted",
+        "gh_diff_src_files",
+        "gh_diff_doc_files",
+        "gh_diff_other_files",
+    }
+
     def __init__(self, db: Database):
-        self.db = db
-        self.build_sample_repo = BuildSampleRepository(db)
+        super().__init__(db)
         self.workflow_run_repo = WorkflowRunRepository(db)
 
     def extract(
@@ -40,13 +62,14 @@ class GitFeatureExtractor(BaseExtractor):
         repo: Optional[ImportedRepository] = None,
         selected_features: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
+        workflow_run, repo = self._resolve_context(build_sample, workflow_run, repo)
         if not repo:
-            logger.warning("Missing repo for GitFeatureExtractor")
-            return self._empty_result()
+            logger.warning("Missing repo for GitHistoryExtractor")
+            return self._filter_features(self._empty_result(), selected_features)
         commit_sha = build_sample.tr_original_commit
         if not commit_sha:
             logger.warning(f"No commit SHA for build {build_sample.id}")
-            return self._empty_result()
+            return self._filter_features(self._empty_result(), selected_features)
 
         repo_path = REPOS_DIR / str(repo.id)
 
@@ -99,17 +122,16 @@ class GitFeatureExtractor(BaseExtractor):
 
             result = {**build_stats, **team_stats, **diff_stats}
 
-            if selected_features:
-                return {k: v for k, v in result.items() if k in selected_features}
-
-            return result
+            return self._filter_features(
+                {**self._empty_result(), **result}, selected_features
+            )
 
         except Exception as e:
             logger.error(
                 f"Failed to extract git features for {repo.full_name}: {e}",
                 exc_info=True,
             )
-            return self._empty_result()
+            return self._filter_features(self._empty_result(), selected_features)
 
     def _get_parent_commit(self, cwd: Path, sha: str) -> str | None:
         try:
@@ -240,9 +262,9 @@ class GitFeatureExtractor(BaseExtractor):
         if repo.installation_id:
             return get_installation_token(repo.installation_id, self.db)
         else:
-            from app.config import settings
+            from app.core.config import settings
 
-            tokens = settings.GITHUB_TOKENS
+            tokens = settings.github.tokens
             if tokens and tokens[0]:
                 return tokens[0]
         return None
@@ -360,8 +382,6 @@ class GitFeatureExtractor(BaseExtractor):
         core_team = committer_names | merger_logins
         gh_team_size = len(core_team)
 
-        # Check if the build trigger author is in the core team
-        is_core_member = False
         # Check if the build trigger author is in the core team
         is_core_member = False
         try:

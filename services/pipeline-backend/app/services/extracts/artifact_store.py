@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from app.config import settings
+from app.core.config import settings
 
 
 class ArtifactStore:

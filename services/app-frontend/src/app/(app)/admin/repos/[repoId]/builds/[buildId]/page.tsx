@@ -137,18 +137,9 @@ export default function BuildDetailPage() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Risk Factors</CardTitle>
+                        <CardTitle>Metrics</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        {build.risk_factors && build.risk_factors.length > 0 && (
-                            <div className="mb-4 flex flex-wrap gap-2">
-                                {build.risk_factors.map((factor) => (
-                                    <Badge key={factor} variant="destructive">
-                                        {factor}
-                                    </Badge>
-                                ))}
-                            </div>
-                        )}
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Churn:</span>
                             <span>{build.git_diff_src_churn} lines</span>

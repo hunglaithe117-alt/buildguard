@@ -2,14 +2,38 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import os
 
 import yaml
 from pydantic import BaseModel, Field
 from buildguard_common.repositories.base import CollectionName
+
+# Auto-load .env in this service directory (similar to app-backend behavior)
+def _load_env_file():
+    # Skip when running in Docker or explicitly disabled
+    if os.getenv("PIPELINE_SKIP_DOTENV") == "1" or Path("/.dockerenv").exists():
+        return
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if not env_path.exists():
+        return
+    try:
+        for line in env_path.read_text().splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
+    except Exception:
+        # If loading fails, continue with existing environment
+        pass
+
+
+_load_env_file()
 
 
 class PathsSettings(BaseModel):
@@ -19,13 +43,21 @@ class PathsSettings(BaseModel):
 
 
 class MongoSettings(BaseModel):
-    uri: str = Field(default="mongodb://travis:travis@mongo:27017")
+    uri: str = Field(
+        default_factory=lambda: os.getenv(
+            "MONGODB_URI", "mongodb://travis:travis@mongo:27017"
+        )
+    )
     database: str = Field(default="travistorrent_pipeline")
     options: Dict[str, Any] = Field(default_factory=lambda: {"authSource": "admin"})
 
 
 class BrokerSettings(BaseModel):
-    url: str = Field(default="amqp://pipeline:pipeline@rabbitmq:5672//")
+    url: str = Field(
+        default_factory=lambda: os.getenv(
+            "CELERY_BROKER_URL", "amqp://pipeline:pipeline@rabbitmq:5672//"
+        )
+    )
     result_backend: str = Field(default="rpc://")
     default_queue: str = Field(default="pipeline.default")
 
@@ -42,36 +74,44 @@ class SonarMeasures(BaseModel):
     output_format: str = Field(default="csv")
 
 
-class SonarInstanceSettings(BaseModel):
-    name: str
-    host: str
+class SonarSettings(BaseModel):
+    webhook_secret: str = Field(
+        default_factory=lambda: os.getenv("SONAR_WEBHOOK_SECRET", "change-me")
+    )
+    webhook_public_url: str = Field(
+        default_factory=lambda: os.getenv(
+            "SONAR_WEBHOOK_PUBLIC_URL", "http://localhost:8000/api/sonar/webhook"
+        )
+    )
+    host: str = Field(
+        default_factory=lambda: os.getenv("SONAR_HOST_URL", "http://localhost:9000")
+    )
     token: Optional[str] = Field(default=None)
+    measures: SonarMeasures = Field(default_factory=SonarMeasures)
 
     def resolved_token(self) -> str:
         if self.token:
             return self.token
-        raise RuntimeError(
-            f"SonarQube token missing for instance '{self.name}'. " "Configure `token`."
-        )
 
+        # Fallback to env var if token is not in config
+        env_token = os.getenv("SONAR_TOKEN")
+        if env_token:
+            return env_token
 
-class SonarSettings(BaseModel):
-    webhook_secret: str = Field(default="change-me")
-    webhook_public_url: str = Field(default="http://localhost:8000/api/sonar/webhook")
-    measures: SonarMeasures = Field(default_factory=SonarMeasures)
-    instances: List[SonarInstanceSettings] = Field(default_factory=list)
+        raise RuntimeError("SonarQube token missing. Configure `token`.")
 
-    def get_instances(self) -> List[SonarInstanceSettings]:
-        return self.instances
+    # Compatibility methods for single instance
+    def get_instance(self, name: Optional[str] = None) -> "SonarSettings":
+        # Return self as the single instance, ignoring name
+        # We add a 'name' property dynamically to mimic the old object if needed,
+        # but better to just return self and let caller handle it.
+        # However, the caller expects an object with .name, .host, .resolved_token()
+        # Let's just return self, and ensure self has those.
+        return self
 
-    def get_instance(self, name: Optional[str] = None) -> SonarInstanceSettings:
-        instances = self.get_instances()
-        if name:
-            for instance in instances:
-                if instance.name == name:
-                    return instance
-            raise ValueError(f"Sonar instance '{name}' is not configured.")
-        return instances[0]
+    @property
+    def name(self) -> str:
+        return "primary"
 
 
 class StorageCollections(BaseModel):
@@ -108,7 +148,13 @@ class S3Settings(BaseModel):
 
 class GitHubSettings(BaseModel):
     api_url: str = Field(default="https://api.github.com")
-    tokens: List[str] = Field(default_factory=list)
+    tokens: List[str] = Field(
+        default_factory=lambda: (
+            os.getenv("GITHUB_TOKENS", "").split(",")
+            if os.getenv("GITHUB_TOKENS")
+            else []
+        )
+    )
     max_parent_hops: int = Field(default=50)
     app_id: Optional[str] = Field(default=None)
     private_key: Optional[str] = Field(default=None)
@@ -121,7 +167,9 @@ class NotificationSettings(BaseModel):
 
 
 class RedisSettings(BaseModel):
-    url: str = Field(default="redis://redis:6379/0")
+    url: str = Field(
+        default_factory=lambda: os.getenv("REDIS_URL", "redis://redis:6379/0")
+    )
 
 
 class Settings(BaseModel):
@@ -141,8 +189,7 @@ class Settings(BaseModel):
 
     @property
     def sonar_token(self) -> str:
-        instance = self.sonarqube.get_instance()
-        return instance.resolved_token()
+        return self.sonarqube.resolved_token()
 
 
 def _load_yaml(path: Path) -> Dict[str, Any]:

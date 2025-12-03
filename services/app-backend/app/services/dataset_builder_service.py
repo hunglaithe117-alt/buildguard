@@ -23,16 +23,19 @@ class DatasetBuilderService:
     def create_job(
         self, user_id: str, payload: IngestionJobCreateRequest
     ) -> DatasetImportJob:
+        template_id = None
+        if payload.dataset_template_id:
+            try:
+                template_id = ObjectId(payload.dataset_template_id)
+            except Exception:
+                template_id = None
+
         job = DatasetImportJob(
             user_id=ObjectId(user_id),
             source_type=payload.source_type,
             status=IngestionStatus.QUEUED,
             repo_url=payload.repo_url,
-            dataset_template_id=(
-                ObjectId(payload.dataset_template_id)
-                if payload.dataset_template_id
-                else None
-            ),
+            dataset_template_id=template_id,
             max_builds=payload.max_builds,
             csv_content=payload.csv_content,
             created_at=datetime.utcnow(),
@@ -68,31 +71,60 @@ class DatasetBuilderService:
         return None
         return None
 
+    def _resolve_feature_ids(self, feature_keys: List[str]) -> List[ObjectId]:
+        """
+        Map selected feature keys to their FeatureDefinition ObjectIds.
+        Raises ValueError if any key is missing so the client can surface the issue.
+        """
+        if not feature_keys:
+            return []
+
+        cursor = self.db["feature_definitions"].find(
+            {"key": {"$in": feature_keys}}, {"_id": 1, "key": 1}
+        )
+        key_to_id = {doc["key"]: doc["_id"] for doc in cursor}
+        missing = [k for k in feature_keys if k not in key_to_id]
+        if missing:
+            raise ValueError(f"Unknown feature keys: {missing}")
+        return list(key_to_id.values())
+
     async def get_features_for_job(self, job_id: str) -> List[Dict[str, Any]]:
         job = self.get_job(job_id)
         if not job or not job.dataset_template_id:
             return []
 
         template_doc = self.db["dataset_templates"].find_one(
-            {"_id": job.dataset_template_id}
+            {"_id": ObjectId(job.dataset_template_id)}
         )
         if not template_doc:
             return []
 
         template = DatasetTemplate(**template_doc)
 
-        # Fetch all features referenced in the template
-        feature_ids = [f.feature_definition_id for f in template.features]
+        feature_keys = getattr(template, "feature_keys", None) or []
+        if not feature_keys:
+            return []
 
         features_cursor = self.db["feature_definitions"].find(
-            {"_id": {"$in": feature_ids}}
+            {"key": {"$in": feature_keys}}
         )
 
-        features = []
+        features: List[Dict[str, Any]] = []
         for doc in features_cursor:
             feat = FeatureDefinition(**doc)
-            features.append(feat.dict(by_alias=True))
+            features.append(
+                {
+                    "key": feat.key,
+                    "name": feat.name,
+                    "description": feat.description,
+                    "default_source": feat.default_source,
+                    "is_active": feat.is_active,
+                }
+            )
 
+        # Preserve template order
+        key_order = {k: i for i, k in enumerate(feature_keys)}
+        features.sort(key=lambda f: key_order.get(f["key"], len(key_order)))
         return features
 
     async def start_extraction(
@@ -101,12 +133,14 @@ class DatasetBuilderService:
         selected_features: List[str],
         extractor_config: Dict[str, Any],
     ) -> None:
+        feature_ids = self._resolve_feature_ids(selected_features)
+
         # Update job with selection
         self.collection.update_one(
             {"_id": ObjectId(job_id)},
             {
                 "$set": {
-                    "selected_features": selected_features,
+                    "selected_features": feature_ids,
                     "extractor_config": extractor_config,
                     "status": IngestionStatus.PROCESSING,  # Move to processing
                 }

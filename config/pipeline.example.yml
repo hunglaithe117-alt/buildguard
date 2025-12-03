@@ -7,11 +7,9 @@ paths:
   default_workdir: /app/data/sonar-work
 github:
   api_url: https://api.github.com
-  tokens:
-    - "paste-github-token-here"
   max_parent_hops: 50
 s3:
-  enabled: true
+  enabled: true # Set to true to upload SonarQube logs to S3, false to skip
   bucket_name: sonar-log-117
   region: us-east-1
   # Optional: Use IAM role on EC2 instead of credentials
@@ -22,25 +20,10 @@ s3:
   # Prefixes for organizing logs
   sonar_logs_prefix: sonar-logs
   error_logs_prefix: error-logs
-mongo:
-  uri: mongodb://travis:travis@mongo:27017
-  database: travistorrent_pipeline
-  options:
-    authSource: admin
-broker:
-  url: amqp://pipeline:pipeline@rabbitmq:5672//
-  result_backend: rpc://
-  default_queue: pipeline.default
 pipeline:
   ingestion_chunk_size: 2000
   default_retry_limit: 3
 sonarqube:
-  webhook_secret: change-me
-  webhook_public_url: http://localhost:8000/api/sonar/webhook
-  instances:
-    - name: primary
-      host: http://localhost:9001
-      token: "paste-token-here"
   measures:
     keys:
       - bugs

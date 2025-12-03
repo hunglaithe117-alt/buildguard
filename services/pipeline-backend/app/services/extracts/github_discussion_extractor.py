@@ -1,23 +1,32 @@
 import logging
-from typing import Any, Dict, Optional
-from app.services.extracts.base import BaseExtractor
-
 from datetime import datetime, timezone
+from typing import Any, Dict, Optional, List
+
+from pymongo.database import Database
 
 from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
-from app.repositories import ImportedRepositoryRepository
+from app.repositories import WorkflowRunRepository
+from app.services.extracts.base import BaseExtractor
 from app.services.github.github_client import (
     get_app_github_client,
     get_public_github_client,
 )
-from pymongo.database import Database
+from buildguard_common.models.feature import FeatureSourceType
 
 logger = logging.getLogger(__name__)
 
 
-class GitHubDiscussionExtractor(BaseExtractor):
+class GitHubApiExtractor(BaseExtractor):
+    source = FeatureSourceType.GITHUB_API
+    supported_features = {
+        "gh_num_commit_comments",
+        "gh_num_pr_comments",
+        "gh_num_issue_comments",
+        "gh_description_complexity",
+    }
+
     def __init__(self, db: Database):
-        self.db = db
+        super().__init__(db)
         self.workflow_run_repo = WorkflowRunRepository(db)
 
     def extract(
@@ -27,14 +36,17 @@ class GitHubDiscussionExtractor(BaseExtractor):
         repo: Optional[ImportedRepository] = None,
         selected_features: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
+        workflow_run, repo = self._resolve_context(build_sample, workflow_run, repo)
         if not workflow_run or not repo:
-            return self._empty_result()
-        commit_sha = build_sample.tr_original_commit
+            return self._filter_features(self._empty_result(), selected_features)
+        commit_sha = build_sample.tr_original_commit or getattr(
+            workflow_run, "head_sha", None
+        )
         if not commit_sha:
-            return self._empty_result()
+            return self._filter_features(self._empty_result(), selected_features)
 
         # Calculate gh_description_complexity
-        payload = workflow_run.raw_payload
+        payload = workflow_run.raw_payload or {}
         pull_requests = payload.get("pull_requests", [])
         pr_number = None
         description_complexity = None
@@ -173,19 +185,21 @@ class GitHubDiscussionExtractor(BaseExtractor):
                                 f"Failed to fetch issue comments for PR {pr_number}: {e}"
                             )
 
+                result = {
+                    **self._empty_result(),
+                    "gh_num_commit_comments": num_commit_comments,
+                    "gh_num_pr_comments": num_pr_comments,
+                    "gh_num_issue_comments": num_issue_comments,
                     "gh_description_complexity": description_complexity,
                 }
-                
-                if selected_features:
-                    return {k: v for k, v in result.items() if k in selected_features}
-                    
-                return result
+
+                return self._filter_features(result, selected_features)
 
         except Exception as e:
             logger.error(
                 f"Failed to extract discussion features for {repo.full_name}: {e}"
             )
-            return self._empty_result()
+            return self._filter_features(self._empty_result(), selected_features)
 
     def _empty_result(self) -> Dict[str, Any]:
         return {

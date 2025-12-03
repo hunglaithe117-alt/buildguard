@@ -39,12 +39,13 @@ from app.core.redis import get_redis
 def import_repository(
     self: PipelineTask,
     user_id: str,
-    repo_full_name: str,
+    full_name: str,
     installation_id: str,
     provider: str = "github",
     test_frameworks: list[str] | None = None,
     source_languages: list[str] | None = None,
     ci_provider: str = "github_actions",
+    auto_sonar_scan: bool = False,
 ) -> Dict[str, Any]:
     import json
     from app.core.config import settings
@@ -53,7 +54,6 @@ def import_repository(
     imported_repo_repo = ImportedRepositoryRepository(self.db)
     workflow_run_repo = WorkflowRunRepository(self.db)
     redis_client = redis.from_url(settings.redis.url)
-
     def publish_status(repo_id: str, status: str, message: str = ""):
         try:
             redis_client.publish(
@@ -101,6 +101,7 @@ def import_repository(
                     "test_frameworks": test_frameworks or [],
                     "source_languages": source_languages or [],
                     "ci_provider": ci_provider or "github_actions",
+                    "auto_sonar_scan": auto_sonar_scan,
                     "import_status": ImportStatus.IMPORTING.value,
                 },
             )
@@ -108,7 +109,11 @@ def import_repository(
         else:
             repo_id = str(repo.id)
             imported_repo_repo.update_repository(
-                repo_id, {"import_status": ImportStatus.IMPORTING.value}
+                repo_id,
+                {
+                    "import_status": ImportStatus.IMPORTING.value,
+                    "auto_sonar_scan": auto_sonar_scan,
+                },
             )
 
         publish_status(repo_id, "importing", "Fetching repository metadata...")

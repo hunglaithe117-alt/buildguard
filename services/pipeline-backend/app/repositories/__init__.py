@@ -23,6 +23,9 @@ from buildguard_common.repositories.imported_repository import (
 from buildguard_common.repositories.repository_scan_repository import (
     RepositoryScanRepository,
 )
+from buildguard_common.repositories.available_repository import (
+    AvailableRepositoryRepository,
+)
 from buildguard_common.repositories.build_sample_repository import BuildSampleRepository
 
 

@@ -3,17 +3,17 @@ import tempfile
 import unittest
 import subprocess
 from pathlib import Path
-from app.services.extracts.git_feature_extractor import GitFeatureExtractor
+from app.services.extracts.git_feature_extractor import GitHistoryExtractor
 
 
-class TestableGitFeatureExtractor(GitFeatureExtractor):
+class TestableGitHistoryExtractor(GitHistoryExtractor):
     def __init__(self):
         self.db = None
         self.build_sample_repo = None
         self.workflow_run_repo = None
 
 
-class TestGitFeatureExtractorLogic(unittest.TestCase):
+class TestGitHistoryExtractorLogic(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
         self.repo_path = Path(self.test_dir)
@@ -22,7 +22,7 @@ class TestGitFeatureExtractorLogic(unittest.TestCase):
         self._run_git(["config", "user.name", "Test User"])
 
         # Mock DB
-        self.extractor = TestableGitFeatureExtractor()
+        self.extractor = TestableGitHistoryExtractor()
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)

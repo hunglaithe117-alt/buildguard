@@ -1,12 +1,12 @@
 import unittest
 from typing import Set, Tuple
-from app.services.extracts.git_feature_extractor import GitFeatureExtractor
+from app.services.extracts.git_feature_extractor import GitHistoryExtractor
 
 
 class TestTeamStats(unittest.TestCase):
     def setUp(self):
         # Mock DB as None since we are only testing the static-like method
-        self.extractor = GitFeatureExtractor(db=None)
+        self.extractor = GitHistoryExtractor(db=None)
 
     def test_resolve_team_size_and_membership(self):
         # Format: (Name, Email, Login)

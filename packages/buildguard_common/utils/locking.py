@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from typing import Generator
 
 import redis
-from app.config import settings
+from buildguard_common.redis import get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,9 @@ def repo_lock(repo_id: str, timeout: int = 300) -> Generator[bool, None, None]:
         repo_id: The ID of the repository to lock.
         timeout: Maximum time to wait for the lock in seconds.
     """
-    r = redis.from_url(settings.REDIS_URL)
+    redis_client = get_redis()
     lock_name = f"lock:repo:{repo_id}"
-    lock = r.lock(lock_name, timeout=300, blocking_timeout=timeout)
+    lock = redis_client.lock(lock_name, timeout=300, blocking_timeout=timeout)
 
     acquired = False
     try:

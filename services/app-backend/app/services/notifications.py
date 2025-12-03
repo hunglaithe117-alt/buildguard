@@ -11,7 +11,6 @@ class NotificationService:
     def send_alert(
         self,
         build: BuildSample,
-        risk_factors: List[str],
         risk_score: float = 0.0,
         shadow_mode: bool = False,
     ):
@@ -58,8 +57,7 @@ class NotificationService:
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "*Risk Factors:*\n"
-                        + "\n".join([f"• {f}" for f in risk_factors]),
+                        "text": "*Alerts triggered from build heuristics.*",
                     },
                 },
             ],

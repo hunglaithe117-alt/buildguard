@@ -30,7 +30,8 @@ class DatasetImportJob(BaseEntity):
     max_builds: Optional[int] = None
     csv_content: Optional[str] = None  # For small CSVs or stored content
     csv_file_path: Optional[str] = None  # For larger files stored on disk
-    selected_features: Optional[list[str]] = None
+    # References to selected FeatureDefinition documents
+    selected_features: Optional[list[PyObjectId]] = None
     extractor_config: Optional[Dict[str, Any]] = None
 
     # Results

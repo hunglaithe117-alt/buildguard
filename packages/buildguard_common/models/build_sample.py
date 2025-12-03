@@ -78,9 +78,3 @@ class BuildSample(BaseEntity):
 
     # User Feedback
     feedback: dict | None = None
-
-    # Risk Analysis
-    risk_factors: List[str] = []
-
-    # Dynamic Features (Feature Store)
-    features: dict = {}

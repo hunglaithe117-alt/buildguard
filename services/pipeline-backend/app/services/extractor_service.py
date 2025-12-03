@@ -3,9 +3,11 @@ from typing import Any, Dict, Optional, List, Type
 from pymongo.database import Database
 
 from app.domain.entities import BuildSample, ImportedRepository
-from app.services.extracts.git_feature_extractor import GitFeatureExtractor
-from app.services.extracts.build_log_extractor import BuildLogExtractor
+from app.services.extracts.git_feature_extractor import GitHistoryExtractor
 from app.services.extracts.base import BaseExtractor
+from app.services.extracts.build_log_extractor import BuildLogExtractor
+from app.services.extracts.github_discussion_extractor import GitHubApiExtractor
+from app.services.extracts.repo_snapshot_extractor import RepoSnapshotExtractor
 from buildguard_common.models.dataset import (
     TrainingDataset,
     FieldMapping,
@@ -20,8 +22,10 @@ class ExtractorService:
     def __init__(self, db: Database):
         self.db = db
         self.extractors: Dict[str, BaseExtractor] = {
-            FeatureSourceType.GIT_EXTRACT: GitFeatureExtractor(db),
-            FeatureSourceType.BUILD_LOG_EXTRACT: BuildLogExtractor(db),
+            FeatureSourceType.GIT_HISTORY: GitHistoryExtractor(db),
+            FeatureSourceType.BUILD_LOG: BuildLogExtractor(db),
+            FeatureSourceType.REPO_SNAPSHOT: RepoSnapshotExtractor(db),
+            FeatureSourceType.GITHUB_API: GitHubApiExtractor(db),
             # Add other extractors here
         }
         # Cache for features per commit/run to avoid re-running for every row
@@ -63,10 +67,14 @@ class ExtractorService:
             # Cache key depends on source type
             # Git features depend on commit
             # Log features depend on run_id
-            if source_type == FeatureSourceType.GIT_EXTRACT:
+            if source_type == FeatureSourceType.GIT_HISTORY:
                 cache_key = f"{source_type}_{repo.id}_{commit_sha}"
-            elif source_type == FeatureSourceType.BUILD_LOG_EXTRACT:
+            elif source_type == FeatureSourceType.BUILD_LOG:
                 cache_key = f"{source_type}_{repo.id}_{workflow_run_id}"
+            elif source_type == FeatureSourceType.GITHUB_API:
+                cache_key = (
+                    f"{source_type}_{repo.id}_{commit_sha}_{workflow_run_id}"
+                )
             else:
                 cache_key = f"{source_type}_{repo.id}_{commit_sha}"
 
@@ -92,7 +100,7 @@ class ExtractorService:
             value = None
 
             # 1. CSV Mapping (Highest Priority if configured)
-            if mapping.source_type == FeatureSourceType.CSV_MAPPED:
+            if mapping.source_type == FeatureSourceType.MANUAL_UPLOAD:
                 if mapping.csv_column and mapping.csv_column in row:
                     value = row[mapping.csv_column]
                     value = self._convert_type(value, feature_def.data_type)

@@ -8,7 +8,8 @@ from app.core.config import settings
 from buildguard_common.mongo import get_database
 from buildguard_common.models.dataset import TrainingDataset, DatasetStatus
 from buildguard_common.models.feature import FeatureDefinition
-from app.repositories import ProjectsRepository, BuildSampleRepository
+from buildguard_common.models import EnrichedDatasetSample
+from app.repositories import ProjectsRepository
 from app.services.extractor_service import ExtractorService
 
 logger = get_task_logger(__name__)
@@ -24,8 +25,10 @@ def process_dataset(self, dataset_id: str) -> dict:
     dataset_coll = db.training_datasets
     feature_coll = db.feature_definitions
     projects_repo = ProjectsRepository(db)
-    build_sample_repo = BuildSampleRepository(db)
     extractor_service = ExtractorService(db)
+    enriched_coll = db[
+        getattr(EnrichedDatasetSample.Config, "collection_name", "dataset_samples")
+    ]
 
     # 1. Load Dataset
     dataset_doc = dataset_coll.find_one({"_id": ObjectId(dataset_id)})
@@ -81,27 +84,23 @@ def process_dataset(self, dataset_id: str) -> dict:
                     dataset, row.to_dict(), repo, commit_sha, feature_defs
                 )
 
-                # 6. Save BuildSample
-                # Check if sample exists
-                existing_sample = build_sample_repo.find_one(
-                    {"repo_id": repo.id, "tr_original_commit": commit_sha}
+                # 6. Save enriched dataset row (separate collection from BuildSample)
+                sample = EnrichedDatasetSample(
+                    dataset_id=ObjectId(dataset_id),
+                    repo_id=repo.id,
+                    commit_sha=commit_sha,
+                    features=features,
+                    source_row=row.to_dict(),
                 )
-
-                if existing_sample:
-                    build_sample_repo.update_one(
-                        str(existing_sample.id), {"features": features}
-                    )
-                else:
-                    # Create new sample
-                    build_sample_repo.create(
-                        {
-                            "repo_id": repo.id,
-                            "tr_original_commit": commit_sha,
-                            "workflow_run_id": 0,  # Dummy
-                            "features": features,
-                            "status": "completed",
-                        }
-                    )
+                enriched_coll.update_one(
+                    {
+                        "dataset_id": sample.dataset_id,
+                        "repo_id": sample.repo_id,
+                        "commit_sha": sample.commit_sha,
+                    },
+                    {"$set": sample.to_mongo()},
+                    upsert=True,
+                )
 
                 processed_count += 1
 

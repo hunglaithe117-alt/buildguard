@@ -1,24 +1,25 @@
 import logging
-import shutil
 import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Optional
-from app.services.extracts.base import BaseExtractor
+from typing import Any, Dict, List, Optional, Tuple
+
+from pymongo.database import Database
 
 from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
+from app.services.commit_replay import ensure_commit_exists
+from app.services.extracts.base import BaseExtractor
 from app.services.extracts.diff_analyzer import (
     _is_source_file,
     _is_test_file,
-    _matches_test_definition,
     _matches_assertion,
+    _matches_test_definition,
     _strip_comments,
 )
 from app.services.github.github_app import get_installation_token
-from app.utils.locking import repo_lock
-from pymongo.database import Database
-from app.services.commit_replay import ensure_commit_exists
+from buildguard_common.models.feature import FeatureSourceType
+from buildguard_common.utils.locking import repo_lock
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,26 @@ REPOS_DIR = Path("../repo-data/repos")
 
 
 class RepoSnapshotExtractor(BaseExtractor):
+    source = FeatureSourceType.REPO_SNAPSHOT
+    supported_features = {
+        "gh_repo_age",
+        "gh_repo_num_commits",
+        "gh_sloc",
+        "gh_test_lines_per_kloc",
+        "gh_test_cases_per_kloc",
+        "gh_asserts_case_per_kloc",
+        "gh_project_name",
+        "gh_is_pr",
+        "gh_pr_created_at",
+        "gh_pull_req_num",
+        "gh_lang",
+        "git_branch",
+        "git_trigger_commit",
+        "gh_build_started_at",
+    }
+
     def __init__(self, db: Database):
-        self.db = db
+        super().__init__(db)
 
     def extract(
         self,
@@ -36,14 +55,20 @@ class RepoSnapshotExtractor(BaseExtractor):
         repo: Optional[ImportedRepository] = None,
         selected_features: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
+        workflow_run, repo = self._resolve_context(build_sample, workflow_run, repo)
         if not workflow_run or not repo:
-            return self._empty_result()
-        commit_sha = build_sample.tr_original_commit
+            logger.warning("Missing workflow_run or repo for RepoSnapshotExtractor")
+            return self._filter_features(self._empty_result(), selected_features)
+
+        commit_sha = build_sample.tr_original_commit or getattr(
+            workflow_run, "head_sha", None
+        )
         if not commit_sha:
-            return self._empty_result()
+            logger.warning("No commit SHA available for snapshot extraction")
+            return self._filter_features(self._empty_result(), selected_features)
 
         # Extract metadata fields
-        payload = workflow_run.raw_payload
+        payload = workflow_run.raw_payload or {}
         head_branch = payload.get("head_branch")
         pull_requests = payload.get("pull_requests", [])
         is_pr = len(pull_requests) > 0 or payload.get("event") == "pull_request"
@@ -74,65 +99,15 @@ class RepoSnapshotExtractor(BaseExtractor):
             result["extraction_warning"] = (
                 "Snapshot features missing: Commit not found (orphan/fork)"
             )
-            return result
+            return self._filter_features(result, selected_features)
 
         try:
             # 1. History metrics (Age, Num Commits)
             age, num_commits = self._get_history_metrics(repo_path, effective_sha)
 
             # 2. Snapshot metrics (SLOC, Tests) using worktree
-            # Lock during worktree operations as they modify .git/worktrees
+            raw_stats = {"sloc": 0, "test_lines": 0, "test_cases": 0, "asserts": 0}
             with repo_lock(str(repo.id)):
-                # Determine language to analyze
-                # Default to all source languages if not specified in config (though current logic iterates)
-                # But for generic extractor, we might want to target specific language from feature config
-                # For now, we iterate all source languages and aggregate or take the main one.
-                # To support "gh_sloc" which is usually total, we might sum up.
-                # But if we want "java_sloc", we need language specific.
-
-                # Refactor: Return a dict keyed by language or aggregated?
-                # The current implementation iterates and overwrites `snapshot_metrics`.
-                # This seems like a bug in original code or it assumes single language.
-                # Let's fix it to aggregate or pick main language.
-
-                snapshot_metrics = {
-                    "gh_sloc": 0,
-                    "gh_test_lines_per_kloc": 0.0,
-                    "gh_test_cases_per_kloc": 0.0,
-                    "gh_asserts_case_per_kloc": 0.0,
-                }
-
-                # If repo has multiple languages, we might want to sum SLOC?
-                # For now, let's stick to the original logic but make it safer:
-                # If we want to support specific language extraction, we need to pass it.
-                # But `extract` method signature is generic.
-                # We can iterate all languages and sum up SLOC, Test Lines, etc.
-
-                total_sloc = 0
-                total_test_lines = 0
-                total_test_cases = 0
-                total_asserts = 0
-
-                for source_lang in repo.source_languages:
-                    lang_metrics = self._analyze_snapshot(
-                        repo_path, effective_sha, source_lang.value.lower()
-                    )
-                    total_sloc += lang_metrics.get("gh_sloc", 0)
-                    # Note: per_kloc metrics cannot be simply summed. We need raw counts first.
-                    # _analyze_snapshot returns computed metrics + raw counts?
-                    # It currently returns computed. We should update _analyze_snapshot to return raw counts too.
-
-                    # For now, let's assume we use the MAIN language for metrics if multiple.
-                    # Or just sum SLOC and re-calculate ratios.
-                    # Let's modify _analyze_snapshot to return raw counts.
-                    pass
-
-                # RE-IMPLEMENTATION of _analyze_snapshot call loop
-                # We will modify _analyze_snapshot to return raw counts in next step.
-                # Here we just prepare the aggregation logic.
-
-                raw_stats = {"sloc": 0, "test_lines": 0, "test_cases": 0, "asserts": 0}
-
                 for source_lang in repo.source_languages:
                     lang_stats = self._analyze_snapshot_raw(
                         repo_path, effective_sha, source_lang.value.lower()
@@ -142,27 +117,23 @@ class RepoSnapshotExtractor(BaseExtractor):
                     raw_stats["test_cases"] += lang_stats["test_cases"]
                     raw_stats["asserts"] += lang_stats["asserts"]
 
-                # Calculate final metrics
-                final_metrics = {}
-                final_metrics["gh_sloc"] = raw_stats["sloc"]
+            final_metrics: Dict[str, Any] = {"gh_sloc": raw_stats["sloc"]}
+            if raw_stats["sloc"] > 0:
+                kloc = raw_stats["sloc"] / 1000.0
+                final_metrics["gh_test_lines_per_kloc"] = (
+                    raw_stats["test_lines"] / kloc
+                )
+                final_metrics["gh_test_cases_per_kloc"] = (
+                    raw_stats["test_cases"] / kloc
+                )
+                final_metrics["gh_asserts_case_per_kloc"] = raw_stats["asserts"] / kloc
+            else:
+                final_metrics["gh_test_lines_per_kloc"] = 0.0
+                final_metrics["gh_test_cases_per_kloc"] = 0.0
+                final_metrics["gh_asserts_case_per_kloc"] = 0.0
 
-                if raw_stats["sloc"] > 0:
-                    kloc = raw_stats["sloc"] / 1000.0
-                    final_metrics["gh_test_lines_per_kloc"] = (
-                        raw_stats["test_lines"] / kloc
-                    )
-                    final_metrics["gh_test_cases_per_kloc"] = (
-                        raw_stats["test_cases"] / kloc
-                    )
-                    final_metrics["gh_asserts_case_per_kloc"] = (
-                        raw_stats["asserts"] / kloc
-                    )
-                else:
-                    final_metrics["gh_test_lines_per_kloc"] = 0.0
-                    final_metrics["gh_test_cases_per_kloc"] = 0.0
-                    final_metrics["gh_asserts_case_per_kloc"] = 0.0
-
-            return {
+            result = {
+                **self._empty_result(),
                 "gh_repo_age": age,
                 "gh_repo_num_commits": num_commits,
                 **final_metrics,
@@ -174,25 +145,16 @@ class RepoSnapshotExtractor(BaseExtractor):
                 "gh_lang": repo.main_lang,
                 "git_branch": head_branch,
                 "git_trigger_commit": workflow_run.head_sha,
-                "ci_provider": (
-                    repo.ci_provider.value
-                    if hasattr(repo.ci_provider, "value")
-                    else repo.ci_provider
-                ),
-                "gh_build_started_at": workflow_run.created_at,
                 "gh_build_started_at": workflow_run.created_at,
             }
 
-            if selected_features:
-                return {k: v for k, v in result.items() if k in selected_features}
-
-            return result
+            return self._filter_features(result, selected_features)
 
         except Exception as e:
             logger.error(
                 f"Failed to extract snapshot features for {repo.full_name}: {e}"
             )
-            return self._empty_result()
+            return self._filter_features(self._empty_result(), selected_features)
 
     def _ensure_repo(self, repo: ImportedRepository, repo_path: Path):
         # Simple clone if not exists (duplicate logic from diff extractor, could be shared)
@@ -221,9 +183,9 @@ class RepoSnapshotExtractor(BaseExtractor):
         if repo.installation_id:
             return get_installation_token(repo.installation_id, self.db)
         else:
-            from app.config import settings
+            from app.core.config import settings
 
-            tokens = settings.GITHUB_TOKENS
+            tokens = settings.github.tokens
             if tokens and tokens[0]:
                 return tokens[0]
         return None
@@ -389,6 +351,5 @@ class RepoSnapshotExtractor(BaseExtractor):
             "gh_lang": None,
             "git_branch": None,
             "git_trigger_commit": None,
-            "ci_provider": None,
             "gh_build_started_at": None,
         }

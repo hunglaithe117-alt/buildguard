@@ -36,7 +36,6 @@ def check_gate(
         return {
             "allowed": False,
             "reason": "Build analysis not found or pending",
-            "risk_factors": [],
         }
 
     # Convert to object to access fields easily if needed, or just use dict
@@ -47,10 +46,7 @@ def check_gate(
         return {
             "allowed": False,
             "reason": f"Build analysis status is {status}",
-            "risk_factors": [],
         }
-
-    risk_factors = build.get("risk_factors", [])
 
     # Check Shadow Mode
     repo_repo = ImportedRepositoryRepository(db)
@@ -58,15 +54,7 @@ def check_gate(
     if repo and repo.shadow_mode:
         return {
             "allowed": True,
-            "reason": f"Shadow Mode enabled (Risk Factors: {len(risk_factors)})",
-            "risk_factors": risk_factors,
+            "reason": "Shadow Mode enabled",
         }
 
-    if risk_factors:
-        return {
-            "allowed": False,
-            "reason": "High risk detected",
-            "risk_factors": risk_factors,
-        }
-
-    return {"allowed": True, "reason": "No risks detected", "risk_factors": []}
+    return {"allowed": True, "reason": "No risks detected"}

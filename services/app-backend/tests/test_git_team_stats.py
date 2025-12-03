@@ -12,13 +12,13 @@ sys.modules["celery"] = MagicMock()
 sys.modules["app.celery_app"] = MagicMock()
 sys.modules["buildguard_common.github_auth"] = MagicMock()
 
-from app.services.extracts.git_feature_extractor import GitFeatureExtractor
+from app.services.extracts.git_feature_extractor import GitHistoryExtractor
 
 
 class TestGitTeamStats(unittest.TestCase):
     def setUp(self):
         self.test_dir = Path(tempfile.mkdtemp())
-        self.extractor = GitFeatureExtractor(db=MagicMock())
+        self.extractor = GitHistoryExtractor(db=MagicMock())
         self._init_repo()
 
     def tearDown(self):

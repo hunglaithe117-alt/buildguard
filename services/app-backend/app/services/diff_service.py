@@ -10,7 +10,7 @@ from pymongo.database import Database
 from buildguard_common.models import BuildSample
 from app.repositories import BuildSampleRepository, ImportedRepositoryRepository
 from buildguard_common.github_auth import get_installation_token
-from app.utils.locking import repo_lock
+from buildguard_common.utils.locking import repo_lock
 
 logger = logging.getLogger(__name__)
 

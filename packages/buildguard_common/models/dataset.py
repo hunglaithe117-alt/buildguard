@@ -22,7 +22,7 @@ class FieldMapping(BaseModel):
 
     source_type: FeatureSourceType  # Data source for this instance (CSV or Extract?)
 
-    # If source is CSV_MAPPED -> Column name in CSV file
+    # If source is MANUAL_UPLOAD -> Column name in CSV file
     csv_column: Optional[str] = None
 
     # Clean/transform config (if any)

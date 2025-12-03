@@ -1,23 +1,43 @@
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List, Set
 
 from pymongo.database import Database
+
 from app.domain.entities import BuildSample, ImportedRepository, WorkflowRunRaw
-from app.services.extracts.log_parser import TestLogParser
 from app.services.extracts.base import BaseExtractor
-from app.repositories import WorkflowRunRepository, ImportedRepositoryRepository
+from app.services.extracts.log_parser import TestLogParser
+from buildguard_common.models.feature import FeatureSourceType
 
 logger = logging.getLogger(__name__)
 
 
 class BuildLogExtractor(BaseExtractor):
+    source = FeatureSourceType.BUILD_LOG
+    supported_features: Set[str] = {
+        "tr_jobs",
+        "tr_build_id",
+        "tr_build_number",
+        "tr_original_commit",
+        "tr_log_lan_all",
+        "tr_log_frameworks_all",
+        "tr_log_num_jobs",
+        "tr_log_tests_run_sum",
+        "tr_log_tests_failed_sum",
+        "tr_log_tests_skipped_sum",
+        "tr_log_tests_ok_sum",
+        "tr_log_tests_fail_rate",
+        "tr_log_testduration_sum",
+        "tr_status",
+        "tr_duration",
+    }
+
     def __init__(
         self,
         db: Optional[Database] = None,
         log_dir: Path = Path("../repo-data/job_logs"),
     ):
-        self.db = db
+        super().__init__(db)
         self.log_dir = log_dir
         self.parser = TestLogParser()
 
@@ -28,20 +48,10 @@ class BuildLogExtractor(BaseExtractor):
         repo: Optional[ImportedRepository] = None,
         selected_features: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        # Fetch dependencies if not provided
-        if not workflow_run and self.db:
-            repo_run = WorkflowRunRepository(self.db).get_by_run_id(
-                build_sample.workflow_run_id
-            )
-            if repo_run:
-                workflow_run = repo_run
-
-        if not repo and self.db:
-            repo = ImportedRepositoryRepository(self.db).get_by_id(build_sample.repo_id)
-
+        workflow_run, repo = self._resolve_context(build_sample, workflow_run, repo)
         if not workflow_run or not repo:
             logger.warning("Missing workflow_run or repo for BuildLogExtractor")
-            return self._empty_result()
+            return self._filter_features(self._empty_result(), selected_features)
 
         repo_id = str(build_sample.repo_id)
         run_id = str(build_sample.workflow_run_id)
@@ -50,12 +60,12 @@ class BuildLogExtractor(BaseExtractor):
         run_log_dir = self.log_dir / repo_id / run_id
         if not run_log_dir.exists():
             logger.warning(f"No logs found for {repo_id}/{run_id}")
-            return self._empty_result()
+            return self._filter_features(self._empty_result(), selected_features)
 
         log_files = list(run_log_dir.glob("*.log"))
         if not log_files:
             logger.warning(f"No log files found in {run_log_dir}")
-            return self._empty_result()
+            return self._filter_features(self._empty_result(), selected_features)
 
         # Initialize aggregators
         tr_jobs = []
@@ -124,7 +134,8 @@ class BuildLogExtractor(BaseExtractor):
             delta = workflow_run.updated_at - workflow_run.created_at
             tr_duration = delta.total_seconds()
 
-        return {
+        result = {
+            **self._empty_result(),
             "tr_jobs": tr_jobs,
             "tr_build_id": workflow_run.workflow_run_id,
             "tr_build_number": workflow_run.run_number,
@@ -140,15 +151,9 @@ class BuildLogExtractor(BaseExtractor):
             "tr_log_testduration_sum": test_duration_sum,
             "tr_status": tr_status,
             "tr_duration": tr_duration,
-            "tr_duration": tr_duration,
         }
 
-        if selected_features:
-            # Always keep some core identifiers if needed, or rely on caller to handle partial updates.
-            # BuildSample update just merges, so filtering is fine.
-            return {k: v for k, v in result.items() if k in selected_features}
-
-        return result
+        return self._filter_features(result, selected_features)
 
     def _empty_result(self) -> Dict[str, Any]:
         return {

@@ -21,6 +21,7 @@ from .feature import FeatureDefinition, FeatureDataType, FeatureSourceType
 from .dataset_template import DatasetTemplate
 from .dataset import TrainingDataset, DatasetStatus, FieldMapping
 from .dataset_import_job import DatasetImportJob, IngestionSourceType, IngestionStatus
+from .enriched_dataset_sample import EnrichedDatasetSample
 
 __all__ = [
     "BaseEntity",
@@ -52,4 +53,5 @@ __all__ = [
     "DatasetImportJob",
     "IngestionSourceType",
     "IngestionStatus",
+    "EnrichedDatasetSample",
 ]

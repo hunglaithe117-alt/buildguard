@@ -1,17 +1,17 @@
 import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta, timezone
-from app.services.extracts.github_discussion_extractor import GitHubDiscussionExtractor
+from app.services.extracts.github_discussion_extractor import GitHubApiExtractor
 from app.models.entities.build_sample import BuildSample
 from app.models.entities.imported_repository import ImportedRepository
 from app.models.entities.workflow_run import WorkflowRunRaw
 from bson import ObjectId
 
 
-class TestGitHubDiscussionExtractorLogic(unittest.TestCase):
+class TestGitHubApiExtractorLogic(unittest.TestCase):
     def setUp(self):
         self.mock_db = MagicMock()
-        self.extractor = GitHubDiscussionExtractor(db=self.mock_db)
+        self.extractor = GitHubApiExtractor(db=self.mock_db)
         self.extractor.workflow_run_repo = MagicMock()
 
     @patch("app.services.extracts.github_discussion_extractor.get_app_github_client")

@@ -1,15 +1,15 @@
 import unittest
 from unittest.mock import MagicMock
 from datetime import datetime, timedelta
-from app.services.extracts.git_feature_extractor import GitFeatureExtractor
+from app.services.extracts.git_feature_extractor import GitHistoryExtractor
 from app.models.entities.imported_repository import ImportedRepository
 from bson import ObjectId
 
 
-class TestGitFeatureExtractorMock(unittest.TestCase):
+class TestGitHistoryExtractorMock(unittest.TestCase):
     def setUp(self):
         self.mock_db = MagicMock()
-        self.extractor = GitFeatureExtractor(db=self.mock_db)
+        self.extractor = GitHistoryExtractor(db=self.mock_db)
         # Mock the repositories
         self.extractor.build_sample_repo = MagicMock()
         self.extractor.workflow_run_repo = MagicMock()

@@ -73,6 +73,11 @@ def process_workflow_run(
         return {"status": "skipped", "reason": "build_sample_not_found"}
 
     orchestrator = PipelineOrchestrator(self.db)
-    orchestrator.run(repo_id, workflow_run.head_sha, str(build_sample.id))
+    orchestrator.run(
+        repo_id,
+        workflow_run.head_sha,
+        str(build_sample.id),
+        workflow_run=workflow_run,
+    )
 
     return {"status": "orchestrated", "build_id": str(build_sample.id)}

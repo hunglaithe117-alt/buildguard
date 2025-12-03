@@ -143,7 +143,7 @@ export function ImportRepoModal({ isOpen, onClose, onImport }: ImportRepoModalPr
                         test_frameworks: [],
                         source_languages: [],
                         ci_provider: CIProvider.GITHUB_ACTIONS,
-                        auto_sonar_scan: true,
+                        auto_sonar_scan: false,
                     },
                 }));
             }

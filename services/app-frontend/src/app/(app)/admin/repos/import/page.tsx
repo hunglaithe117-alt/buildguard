@@ -56,7 +56,6 @@ export default function ImportPage() {
     const sourceType = form.watch("source_type");
 
     useEffect(() => {
-        // Fetch templates
         api.get("/datasets/templates").then((res) => {
             setTemplates(res.data);
         });
@@ -74,7 +73,14 @@ export default function ImportPage() {
                 return;
             }
 
-            await api.post("/dataset-builder/jobs", values);
+            const payload = {
+                ...values,
+                dataset_template_id: values.dataset_template_id || undefined,
+                repo_url: values.source_type === "github" ? values.repo_url : undefined,
+                csv_content: values.source_type === "csv" ? values.csv_content : undefined,
+            };
+
+            await api.post("/dataset-builder/jobs", payload);
 
             toast({
                 title: "Import Job Created",
@@ -216,7 +222,7 @@ export default function ImportPage() {
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="none">None</SelectItem>
+                                                <SelectItem value="">None</SelectItem>
                                                 {templates.map((t) => (
                                                     <SelectItem key={t.id} value={t.id}>
                                                         {t.name}

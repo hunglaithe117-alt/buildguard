@@ -129,7 +129,7 @@ class RepositoryService:
                         "source_languages": payload.source_languages,
                         "ci_provider": payload.ci_provider,
                         "import_status": ImportStatus.QUEUED.value,
-                        "auto_sonar_scan": payload.auto_sonar_scan,
+                        "auto_sonar_scan": bool(payload.auto_sonar_scan),
                     },
                 )
 
@@ -316,6 +316,7 @@ class RepositoryService:
                 "test_frameworks": repo_doc.test_frameworks,
                 "source_languages": repo_doc.source_languages,
                 "ci_provider": repo_doc.ci_provider,
+                "auto_sonar_scan": bool(getattr(repo_doc, "auto_sonar_scan", False)),
             },
             queue="import_repo",
         )

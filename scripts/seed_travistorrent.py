@@ -1,51 +1,23 @@
 import logging
 import os
-from enum import Enum
-from typing import List, Dict, Optional, Any
+import sys
+from pathlib import Path
+from typing import List
+
 from pymongo import MongoClient
-from pydantic import BaseModel, Field
+
+from buildguard_common.models.dataset_template import DatasetTemplate
+from buildguard_common.models.feature import (
+    FeatureDataType,
+    FeatureDefinition,
+    FeatureSourceType,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 DATABASE_NAME = os.getenv("MONGO_DATABASE", "buildguard")
-
-# --- Local Model Definitions to avoid Import Errors ---
-
-
-class FeatureDataType(str, Enum):
-    INTEGER = "integer"
-    FLOAT = "float"
-    BOOLEAN = "boolean"
-    STRING = "string"
-    CATEGORY = "category"
-
-
-class FeatureSourceType(str, Enum):
-    METADATA = "metadata"
-    CSV_MAPPED = "csv_mapped"
-    GIT_EXTRACT = "git_extract"
-    BUILD_LOG_EXTRACT = "build_log_extract"
-    REPO_SNAPSHOT_EXTRACT = "repo_snapshot_extract"
-    DERIVED = "derived"
-
-
-class FeatureDefinition(BaseModel):
-    key: str
-    name: str
-    description: Optional[str] = None
-    data_type: FeatureDataType
-    default_source: FeatureSourceType
-    extraction_config: Optional[dict] = None
-    is_active: bool = True
-
-
-class DatasetTemplate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    feature_keys: List[str] = []
-    default_mapping: Dict[str, str] = {}
 
 
 def seed_travistorrent():
@@ -55,394 +27,394 @@ def seed_travistorrent():
     features_collection = db["feature_definitions"]
     templates_collection = db["dataset_templates"]
 
-    # 1. Define Features
-    features = [
-        # --- Metadata ---
+    # --- Feature Definitions ---
+    features: List[FeatureDefinition] = [
+        # Build metadata
         FeatureDefinition(
             key="tr_build_id",
-            name="Travis Build ID",
+            name="Build ID",
             data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="Unique identifier for the build in Travis CI",
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="ID của bản build được phân tích, như được báo cáo.",
         ),
         FeatureDefinition(
             key="gh_project_name",
-            name="Project Name",
+            name="GitHub Project Name",
             data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="GitHub repository name (owner/repo)",
-        ),
-        FeatureDefinition(
-            key="git_trigger_commit",
-            name="Trigger Commit",
-            data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="Commit hash that triggered the build",
-        ),
-        FeatureDefinition(
-            key="git_branch",
-            name="Git Branch",
-            data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="Branch name",
-        ),
-        FeatureDefinition(
-            key="gh_lang",
-            name="Language",
-            data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="Main language of the repository",
-        ),
-        FeatureDefinition(
-            key="ci_provider",
-            name="CI Provider",
-            data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="CI Provider (e.g., Travis, GitHub Actions)",
-        ),
-        FeatureDefinition(
-            key="gh_build_started_at",
-            name="Build Started At",
-            data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="Timestamp when build started",
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Tên dự án trên GitHub.",
         ),
         FeatureDefinition(
             key="gh_is_pr",
-            name="Is PR",
+            name="Is Pull Request",
             data_type=FeatureDataType.BOOLEAN,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="Whether the build was triggered by a PR",
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Xác định build này có được kích hoạt từ một pull request hay không.",
         ),
         FeatureDefinition(
             key="gh_pr_created_at",
             name="PR Created At",
             data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="Timestamp when PR was created",
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Nếu là pull request, thời gian tạo pull request đó (UTC).",
         ),
         FeatureDefinition(
             key="gh_pull_req_num",
-            name="PR Number",
+            name="Pull Request Number",
             data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.CSV_MAPPED,
-            description="Pull Request Number",
-        ),
-        # --- Build Log Features ---
-        FeatureDefinition(
-            key="tr_log_num_jobs",
-            name="Number of Jobs",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_num_jobs"},
-            description="Number of jobs in the build",
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Nếu là pull request, ID của pull request trên GitHub.",
         ),
         FeatureDefinition(
-            key="tr_log_tests_run_sum",
-            name="Tests Run",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_tests_run_sum"},
-            description="Total number of tests run",
-        ),
-        FeatureDefinition(
-            key="tr_log_tests_failed_sum",
-            name="Tests Failed",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_tests_failed_sum"},
-            description="Total number of tests failed",
-        ),
-        FeatureDefinition(
-            key="tr_log_tests_skipped_sum",
-            name="Tests Skipped",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_tests_skipped_sum"},
-            description="Total number of tests skipped",
-        ),
-        FeatureDefinition(
-            key="tr_log_tests_ok_sum",
-            name="Tests Passed",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_tests_ok_sum"},
-            description="Total number of tests passed",
-        ),
-        FeatureDefinition(
-            key="tr_log_tests_fail_rate",
-            name="Test Fail Rate",
-            data_type=FeatureDataType.FLOAT,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_tests_fail_rate"},
-            description="Ratio of failed tests to total tests",
-        ),
-        FeatureDefinition(
-            key="tr_log_testduration_sum",
-            name="Test Duration",
-            data_type=FeatureDataType.FLOAT,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_testduration_sum"},
-            description="Total duration of tests in seconds",
-        ),
-        FeatureDefinition(
-            key="tr_status",
-            name="Build Status",
+            key="gh_lang",
+            name="Repository Language",
             data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_status"},
-            description="Status of the build (passed, failed, etc.)",
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Ngôn ngữ chính của kho mã, theo GitHub.",
         ),
         FeatureDefinition(
-            key="tr_duration",
-            name="Build Duration",
-            data_type=FeatureDataType.FLOAT,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_duration"},
-            description="Total duration of the build in seconds",
-        ),
-        FeatureDefinition(
-            key="tr_jobs",
-            name="Job IDs",
+            key="git_branch",
+            name="Git Branch",
             data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_jobs"},
-            description="List of Job IDs",
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Nhánh được build.",
         ),
         FeatureDefinition(
-            key="tr_log_lan_all",
-            name="Languages (Log)",
+            key="git_trigger_commit",
+            name="Trigger Commit",
             data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_lan_all"},
-            description="Languages detected in logs/repo",
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Commit đã kích hoạt build.",
         ),
         FeatureDefinition(
-            key="tr_log_frameworks_all",
-            name="Frameworks (Log)",
+            key="gh_build_started_at",
+            name="Build Started At",
             data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.BUILD_LOG_EXTRACT,
-            extraction_config={"key": "tr_log_frameworks_all"},
-            description="Test frameworks detected in logs",
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Thời điểm build bắt đầu.",
         ),
-        # --- Git Diff Features ---
-        FeatureDefinition(
-            key="git_diff_src_churn",
-            name="Source Churn",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "git_diff_src_churn"},
-            description="Churn in source code files",
-        ),
-        FeatureDefinition(
-            key="git_diff_test_churn",
-            name="Test Churn",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "git_diff_test_churn"},
-            description="Churn in test code files",
-        ),
-        FeatureDefinition(
-            key="gh_diff_files_added",
-            name="Files Added",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_diff_files_added"},
-            description="Number of files added in the commit",
-        ),
-        FeatureDefinition(
-            key="gh_diff_files_deleted",
-            name="Files Deleted",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_diff_files_deleted"},
-            description="Number of files deleted in the commit",
-        ),
-        FeatureDefinition(
-            key="gh_diff_files_modified",
-            name="Files Modified",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_diff_files_modified"},
-            description="Number of files modified in the commit",
-        ),
-        FeatureDefinition(
-            key="gh_diff_tests_added",
-            name="Tests Added",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_diff_tests_added"},
-            description="Number of test cases added",
-        ),
-        FeatureDefinition(
-            key="gh_diff_tests_deleted",
-            name="Tests Deleted",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_diff_tests_deleted"},
-            description="Number of test cases deleted",
-        ),
-        FeatureDefinition(
-            key="gh_diff_src_files",
-            name="Source Files Touched",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_diff_src_files"},
-            description="Number of source files touched",
-        ),
-        FeatureDefinition(
-            key="gh_diff_doc_files",
-            name="Doc Files Touched",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_diff_doc_files"},
-            description="Number of documentation files touched",
-        ),
-        FeatureDefinition(
-            key="gh_diff_other_files",
-            name="Other Files Touched",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_diff_other_files"},
-            description="Number of other files touched",
-        ),
-        # --- Repo Snapshot Features ---
-        FeatureDefinition(
-            key="gh_repo_age",
-            name="Repo Age",
-            data_type=FeatureDataType.FLOAT,
-            default_source=FeatureSourceType.REPO_SNAPSHOT_EXTRACT,
-            extraction_config={"key": "gh_repo_age"},
-            description="Age of the repository in days",
-        ),
-        FeatureDefinition(
-            key="gh_repo_num_commits",
-            name="Num Commits",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.REPO_SNAPSHOT_EXTRACT,
-            extraction_config={"key": "gh_repo_num_commits"},
-            description="Total number of commits in the repository",
-        ),
-        FeatureDefinition(
-            key="gh_sloc",
-            name="SLOC",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.REPO_SNAPSHOT_EXTRACT,
-            extraction_config={"key": "gh_sloc"},
-            description="Source Lines of Code",
-        ),
-        FeatureDefinition(
-            key="gh_test_lines_per_kloc",
-            name="Test Lines/KLOC",
-            data_type=FeatureDataType.FLOAT,
-            default_source=FeatureSourceType.REPO_SNAPSHOT_EXTRACT,
-            extraction_config={"key": "gh_test_lines_per_kloc"},
-            description="Test lines per 1000 lines of code",
-        ),
-        FeatureDefinition(
-            key="gh_test_cases_per_kloc",
-            name="Test Cases/KLOC",
-            data_type=FeatureDataType.FLOAT,
-            default_source=FeatureSourceType.REPO_SNAPSHOT_EXTRACT,
-            extraction_config={"key": "gh_test_cases_per_kloc"},
-            description="Test cases per 1000 lines of code",
-        ),
-        FeatureDefinition(
-            key="gh_asserts_case_per_kloc",
-            name="Asserts/KLOC",
-            data_type=FeatureDataType.FLOAT,
-            default_source=FeatureSourceType.REPO_SNAPSHOT_EXTRACT,
-            extraction_config={"key": "gh_asserts_case_per_kloc"},
-            description="Assertions per 1000 lines of code",
-        ),
-        # --- Git Team Features ---
-        FeatureDefinition(
-            key="gh_team_size",
-            name="Team Size",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_team_size"},
-            description="Number of contributors in the team",
-        ),
-        FeatureDefinition(
-            key="gh_by_core_team_member",
-            name="By Core Member",
-            data_type=FeatureDataType.BOOLEAN,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_by_core_team_member"},
-            description="Whether the build was triggered by a core team member",
-        ),
-        FeatureDefinition(
-            key="gh_num_commits_on_files_touched",
-            name="Commits on Files",
-            data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "gh_num_commits_on_files_touched"},
-            description="Number of prior commits on the touched files",
-        ),
-        # --- Git History Features ---
+        # Git history and lineage
         FeatureDefinition(
             key="git_prev_commit_resolution_status",
-            name="Prev Commit Status",
+            name="Prev Commit Resolution Status",
             data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "git_prev_commit_resolution_status"},
-            description="Status of the previous commit resolution",
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Lý do dừng khi lần ngược lịch sử: no_previous_build, build_found hoặc merge_found.",
         ),
         FeatureDefinition(
             key="git_prev_built_commit",
             name="Prev Built Commit",
             data_type=FeatureDataType.STRING,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "git_prev_built_commit"},
-            description="SHA of the previous built commit",
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Commit đã kích hoạt bản build trước trong lịch sử tuyến tính.",
         ),
         FeatureDefinition(
             key="tr_prev_build",
-            name="Prev Build ID",
+            name="Previous Build",
             data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "tr_prev_build"},
-            description="ID of the previous build",
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Build được kích hoạt bởi git_prev_built_commit.",
+        ),
+        FeatureDefinition(
+            key="git_all_built_commits",
+            name="All Built Commits",
+            data_type=FeatureDataType.STRING,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Danh sách (nối bằng #) commit từ commit build tới khi gặp build trước đó hoặc commit merge.",
         ),
         FeatureDefinition(
             key="git_num_all_built_commits",
-            name="Num Built Commits",
+            name="Num All Built Commits",
             data_type=FeatureDataType.INTEGER,
-            default_source=FeatureSourceType.GIT_EXTRACT,
-            extraction_config={"key": "git_num_all_built_commits"},
-            description="Number of built commits in history",
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số lượng commit trong git_all_built_commits.",
+        ),
+        # Team signals
+        FeatureDefinition(
+            key="gh_team_size",
+            name="Team Size",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số lượng lập trình viên đã commit trực tiếp hoặc merge PR trong vòng 3 tháng trước build.",
+        ),
+        FeatureDefinition(
+            key="gh_by_core_team_member",
+            name="By Core Team Member",
+            data_type=FeatureDataType.BOOLEAN,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="true nếu tất cả tác giả trong git_all_built_commits thuộc core team 3 tháng gần build.",
+        ),
+        FeatureDefinition(
+            key="gh_num_commits_on_files_touched",
+            name="Num Commits On Files Touched",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số commit duy nhất (không thuộc git_all_built_commits) trên các file bị tác động trong 3 tháng gần nhất.",
+        ),
+        # GitHub discussion signals
+        FeatureDefinition(
+            key="gh_num_commit_comments",
+            name="Commit Comments",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GITHUB_API,
+            description="Số lượng bình luận trên các commit trong git_all_built_commits trên GitHub.",
+        ),
+        FeatureDefinition(
+            key="gh_num_pr_comments",
+            name="PR Review Comments",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GITHUB_API,
+            description="Số comment code review của PR trong khoảng thời gian quan sát.",
+        ),
+        FeatureDefinition(
+            key="gh_num_issue_comments",
+            name="PR Issue Comments",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GITHUB_API,
+            description="Số comment thảo luận (issue_comments) của PR trong khoảng thời gian quan sát.",
+        ),
+        FeatureDefinition(
+            key="gh_description_complexity",
+            name="PR Description Complexity",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GITHUB_API,
+            description="Tổng số từ trong tiêu đề và mô tả PR.",
+        ),
+        # Git diff / churn
+        FeatureDefinition(
+            key="git_diff_src_churn",
+            name="Source Churn",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Tổng dòng thêm+bớt trong file code chính.",
+        ),
+        FeatureDefinition(
+            key="git_diff_test_churn",
+            name="Test Churn",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Tổng dòng thêm+bớt trong file test.",
+        ),
+        FeatureDefinition(
+            key="gh_diff_files_added",
+            name="Files Added",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số file được thêm mới trong mọi commit thuộc git_all_built_commits.",
+        ),
+        FeatureDefinition(
+            key="gh_diff_files_deleted",
+            name="Files Deleted",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số file bị xóa trong mọi commit thuộc git_all_built_commits.",
+        ),
+        FeatureDefinition(
+            key="gh_diff_files_modified",
+            name="Files Modified",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số file được chỉnh sửa trong mọi commit thuộc git_all_built_commits.",
+        ),
+        FeatureDefinition(
+            key="gh_diff_tests_added",
+            name="Tests Added",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số test case thêm trong mọi commit thuộc git_all_built_commits.",
+        ),
+        FeatureDefinition(
+            key="gh_diff_tests_deleted",
+            name="Tests Deleted",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số lượng test case bị xóa trong mọi commit thuộc git_all_built_commits.",
+        ),
+        FeatureDefinition(
+            key="gh_diff_src_files",
+            name="Source Files Touched",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số lượng file mã nguồn bị thay đổi trong mọi commit thuộc git_all_built_commits.",
+        ),
+        FeatureDefinition(
+            key="gh_diff_doc_files",
+            name="Doc Files Touched",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số lượng file tài liệu bị thay đổi trong mọi commit thuộc git_all_built_commits.",
+        ),
+        FeatureDefinition(
+            key="gh_diff_other_files",
+            name="Other Files Touched",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.GIT_HISTORY,
+            description="Số lượng file khác bị thay đổi trong mọi commit thuộc git_all_built_commits.",
+        ),
+        # Repository snapshot metrics
+        FeatureDefinition(
+            key="gh_sloc",
+            name="Source Lines of Code",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Số dòng mã nguồn thực thi trong toàn bộ repository.",
+        ),
+        FeatureDefinition(
+            key="gh_test_lines_per_kloc",
+            name="Test Lines per KLOC",
+            data_type=FeatureDataType.FLOAT,
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Tổng số dòng mã test trên mỗi KLOC.",
+        ),
+        FeatureDefinition(
+            key="gh_test_cases_per_kloc",
+            name="Test Cases per KLOC",
+            data_type=FeatureDataType.FLOAT,
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Tổng số test case trên mỗi KLOC.",
+        ),
+        FeatureDefinition(
+            key="gh_asserts_case_per_kloc",
+            name="Asserts per KLOC",
+            data_type=FeatureDataType.FLOAT,
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Tổng số lệnh assert trên mỗi KLOC.",
+        ),
+        FeatureDefinition(
+            key="gh_repo_age",
+            name="Repository Age",
+            data_type=FeatureDataType.FLOAT,
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Tuổi của repository tính bằng ngày.",
+        ),
+        FeatureDefinition(
+            key="gh_repo_num_commits",
+            name="Repository Num Commits",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.REPO_SNAPSHOT,
+            description="Số commit tính từ commit kích hoạt build ngược tới commit đầu tiên.",
+        ),
+        # Build log metrics
+        FeatureDefinition(
+            key="tr_jobs",
+            name="Job IDs",
+            data_type=FeatureDataType.STRING,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="ID của job trong build được phân tích.",
+        ),
+        FeatureDefinition(
+            key="tr_build_number",
+            name="Build Number",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Số thứ tự của build trong dự án.",
+        ),
+        FeatureDefinition(
+            key="tr_original_commit",
+            name="Original Commit",
+            data_type=FeatureDataType.STRING,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="SHA của commit.",
+        ),
+        FeatureDefinition(
+            key="tr_log_lan_all",
+            name="Log Languages",
+            data_type=FeatureDataType.STRING,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Các ngôn ngữ chính trích xuất từ log build.",
+        ),
+        FeatureDefinition(
+            key="tr_log_frameworks_all",
+            name="Log Frameworks",
+            data_type=FeatureDataType.STRING,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Các test framework xuất hiện trong log.",
+        ),
+        FeatureDefinition(
+            key="tr_log_tests_run_sum",
+            name="Tests Run Sum",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Tổng số test được chạy trong toàn bộ build.",
+        ),
+        FeatureDefinition(
+            key="tr_log_tests_failed_sum",
+            name="Tests Failed Sum",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Tổng số test bị lỗi trong toàn bộ build.",
+        ),
+        FeatureDefinition(
+            key="tr_log_tests_skipped_sum",
+            name="Tests Skipped Sum",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Tổng số test bị bỏ qua trong toàn bộ build.",
+        ),
+        FeatureDefinition(
+            key="tr_log_tests_ok_sum",
+            name="Tests OK Sum",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Tổng số test thành công trong toàn bộ build.",
+        ),
+        FeatureDefinition(
+            key="tr_log_tests_fail_rate",
+            name="Test Fail Rate",
+            data_type=FeatureDataType.FLOAT,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Tỷ lệ test thất bại trong build.",
+        ),
+        FeatureDefinition(
+            key="tr_log_testduration_sum",
+            name="Test Duration Sum",
+            data_type=FeatureDataType.FLOAT,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Tổng thời gian test của các job.",
+        ),
+        FeatureDefinition(
+            key="tr_status",
+            name="Build Status",
+            data_type=FeatureDataType.STRING,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Trạng thái tổng thể của build (thành công/thất bại/lỗi).",
+        ),
+        FeatureDefinition(
+            key="tr_duration",
+            name="Build Duration",
+            data_type=FeatureDataType.FLOAT,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Tổng thời gian build (bao gồm thiết lập, build và test).",
+        ),
+        FeatureDefinition(
+            key="tr_log_num_jobs",
+            name="Num Jobs",
+            data_type=FeatureDataType.INTEGER,
+            default_source=FeatureSourceType.BUILD_LOG,
+            description="Tổng số jobs trong build.",
         ),
     ]
 
-    # Upsert Features
     for feature in features:
         features_collection.update_one(
-            {"key": feature.key}, {"$set": feature.dict(exclude={"id"})}, upsert=True
+            {"key": feature.key},
+            {"$set": feature.to_mongo()},
+            upsert=True,
         )
-    logger.info(f"Seeded {len(features)} features.")
+    logger.info("Seeded %s features.", len(features))
 
-    # 2. Define Template
+    feature_keys = [f.key for f in features]
     template = DatasetTemplate(
         name="TravisTorrent",
-        description="Standard TravisTorrent dataset features",
-        feature_keys=[f.key for f in features],
-        default_mapping={
-            "tr_build_id": "tr_build_id",
-            "gh_project_name": "gh_project_name",
-            "git_trigger_commit": "git_trigger_commit",
-            "git_branch": "git_branch",
-            "gh_lang": "gh_lang",
-            "ci_provider": "ci_provider",
-            "gh_build_started_at": "gh_build_started_at",
-            "gh_is_pr": "gh_is_pr",
-            "gh_pr_created_at": "gh_pr_created_at",
-            "gh_pull_req_num": "gh_pull_req_num",
-        },
+        description="Standard TravisTorrent dataset features.",
+        feature_keys=feature_keys,
+        default_mapping={key: key for key in feature_keys},
     )
 
     templates_collection.update_one(
-        {"name": template.name}, {"$set": template.dict(exclude={"id"})}, upsert=True
+        {"name": template.name},
+        {"$set": template.to_mongo()},
+        upsert=True,
     )
     logger.info("Seeded TravisTorrent template.")
 

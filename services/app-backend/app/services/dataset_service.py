@@ -58,17 +58,17 @@ class DatasetService:
 
             if suggested_csv_col and suggested_csv_col in csv_columns:
                 # Case 1: Tìm thấy cột CSV đúng tên gợi ý (Perfect Match)
-                mapping.source_type = FeatureSourceType.CSV_MAPPED
+                mapping.source_type = FeatureSourceType.MANUAL_UPLOAD
                 mapping.csv_column = suggested_csv_col
 
             elif feat.key in csv_columns:
                 # Case 2: Tên feature trùng tên cột CSV (Name Match)
-                mapping.source_type = FeatureSourceType.CSV_MAPPED
+                mapping.source_type = FeatureSourceType.MANUAL_UPLOAD
                 mapping.csv_column = feat.key
 
             else:
                 # Case 3: Không tìm thấy trong CSV -> Đề xuất hệ thống tự tính (Extract)
-                # Giữ nguyên source_type mặc định (VD: GIT_EXTRACT)
+                # Giữ nguyên source_type mặc định (VD: GIT_HISTORY)
                 pass
 
             suggestions.append(

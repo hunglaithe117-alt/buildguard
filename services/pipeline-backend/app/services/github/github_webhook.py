@@ -8,7 +8,7 @@ from typing import Dict
 from fastapi import HTTPException, status
 from pymongo.database import Database
 
-from app.config import settings
+from app.core.config import settings
 from app.services.github.github_sync import sync_user_available_repos
 from app.repositories import WorkflowRunRepository
 from app.domain.entities import WorkflowRunRaw

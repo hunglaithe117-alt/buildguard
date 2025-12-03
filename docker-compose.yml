@@ -19,8 +19,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: travis
       MONGO_INITDB_ROOT_PASSWORD: travis
-      MONGO_REPLICA_SET_NAME: rs0
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+      # MONGO_REPLICA_SET_NAME: rs0
+    command: ["mongod", "--bind_ip_all"]
 
   # MongoDB Init Service (Initialize Replica Set)
   mongo-init:

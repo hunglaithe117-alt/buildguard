@@ -19,6 +19,7 @@ from app.api import (
     tokens,
     compare,
     gate,
+    datasets,
 )
 from app.middleware.request_logging import RequestLoggingMiddleware
 
@@ -60,6 +61,7 @@ app.include_router(sonar.router, prefix="/api/sonar", tags=["SonarQube"])
 app.include_router(tokens.router, prefix="/api/tokens", tags=["Tokens"])
 app.include_router(compare.router, prefix="/api", tags=["Compare"])
 app.include_router(gate.router, prefix="/api/gate", tags=["Gate"])
+app.include_router(datasets.router, prefix="/api", tags=["Datasets"])
 
 
 @app.get("/")

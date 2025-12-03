@@ -81,3 +81,5 @@ class BuildSample(BaseEntity):
     # Risk Analysis
     risk_factors: List[str] = []
 
+    # Dynamic Features (Feature Store)
+    features: dict = {}

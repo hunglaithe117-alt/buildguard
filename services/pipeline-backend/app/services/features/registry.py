@@ -7,9 +7,12 @@ This module provides:
 3. Dependency resolution
 """
 
-from typing import Dict, List, Optional, Set, Type
+from typing import Any, Dict, List, Optional, Set, Type, TYPE_CHECKING
 
 from .base import BaseFeature, FeatureGroup, FeatureSource
+
+if TYPE_CHECKING:
+    from .base import ExtractionContext
 
 from .base import BaseFeature, FeatureGroup, FeatureSource
 
@@ -171,6 +174,96 @@ class FeatureRegistry:
                     )
 
         return sorted(result, key=lambda x: x["name"])
+
+    def extract_source(
+        self,
+        source: FeatureSource,
+        context: "ExtractionContext",
+        known_values: Dict[str, Any],
+        selected_features: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Extract all features for a given source.
+
+        Args:
+            source: The feature source (e.g., FeatureSource.GIT_HISTORY).
+            context: The extraction context.
+            known_values: Dictionary of already extracted feature values (for dependencies).
+            selected_features: Optional list of specific features to extract.
+                             If None, extracts all features for the source.
+
+        Returns:
+            Dict mapping feature names to their extracted values.
+        """
+        # 1. Identify features to extract
+        source_features = self.get_by_source(source)
+        if selected_features:
+            # Filter selected features to only those belonging to this source
+            target_features = [f for f in selected_features if f in source_features]
+            if not target_features:
+                return {}
+        else:
+            target_features = list(source_features)
+
+        # 2. Resolve dependencies (ensure execution order)
+        # We resolve dependencies for target features, but only execute those
+        # that belong to the current source. Dependencies from other sources
+        # are expected to be in known_values.
+        execution_plan = self.resolve_dependencies(target_features)
+        features_to_run = [f for f in execution_plan if f in source_features]
+
+        # 3. Find and setup group (if any)
+        group_cls = None
+        for g in self._groups.values():
+            if g.source == source:
+                group_cls = g
+                break
+
+        group_instance = None
+        if group_cls:
+            group_instance = group_cls(context.db)
+            try:
+                if not group_instance.setup(context):
+                    # Setup failed, cannot extract features for this group
+                    return {}
+            except Exception:
+                # Log error? We don't have logger here easily unless imported
+                return {}
+
+        results = {}
+
+        # 4. Execute features
+        try:
+            for name in features_to_run:
+                feature_cls = self.get(name)
+                if not feature_cls:
+                    continue
+
+                extractor = feature_cls(context.db)
+
+                # Check dependencies
+                # We combine known_values with results from this run so far
+                current_dependencies = known_values.copy()
+                current_dependencies.update(results)
+
+                if not extractor.validate_dependencies(current_dependencies):
+                    # Missing dependencies, skip or error?
+                    # For now, we skip and maybe log result as None
+                    results[name] = None
+                    continue
+
+                try:
+                    result = extractor.extract(context, current_dependencies)
+                    results[name] = result.value
+                except Exception:
+                    results[name] = None
+
+        finally:
+            # 5. Teardown group
+            if group_instance:
+                group_instance.teardown(context)
+
+        return results
 
     def clear(self) -> None:
         """Clear all registrations (useful for testing)."""

@@ -11,6 +11,7 @@ from app.services.features.base import (
     FeatureSource,
 )
 from app.services.features.registry import register_feature, register_group
+from buildguard_common.models.features import FeatureDataType
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,7 @@ def _compute_log_stats(context: ExtractionContext):
 class TrJobs(BaseFeature):
     name = "tr_jobs"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.STRING  # List of ints
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -169,6 +171,7 @@ class TrJobs(BaseFeature):
 class TrBuildId(BaseFeature):
     name = "tr_build_id"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -181,6 +184,7 @@ class TrBuildId(BaseFeature):
 class TrBuildNumber(BaseFeature):
     name = "tr_build_number"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -193,6 +197,7 @@ class TrBuildNumber(BaseFeature):
 class TrOriginalCommit(BaseFeature):
     name = "tr_original_commit"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -205,6 +210,7 @@ class TrOriginalCommit(BaseFeature):
 class TrLogLanAll(BaseFeature):
     name = "tr_log_lan_all"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.STRING  # List of strings
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -217,6 +223,7 @@ class TrLogLanAll(BaseFeature):
 class TrLogFrameworksAll(BaseFeature):
     name = "tr_log_frameworks_all"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.STRING  # List of strings
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -229,6 +236,7 @@ class TrLogFrameworksAll(BaseFeature):
 class TrLogNumJobs(BaseFeature):
     name = "tr_log_num_jobs"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -241,6 +249,7 @@ class TrLogNumJobs(BaseFeature):
 class TrLogTestsRunSum(BaseFeature):
     name = "tr_log_tests_run_sum"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -253,6 +262,7 @@ class TrLogTestsRunSum(BaseFeature):
 class TrLogTestsFailedSum(BaseFeature):
     name = "tr_log_tests_failed_sum"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -265,6 +275,7 @@ class TrLogTestsFailedSum(BaseFeature):
 class TrLogTestsSkippedSum(BaseFeature):
     name = "tr_log_tests_skipped_sum"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -277,6 +288,7 @@ class TrLogTestsSkippedSum(BaseFeature):
 class TrLogTestsOkSum(BaseFeature):
     name = "tr_log_tests_ok_sum"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -289,6 +301,7 @@ class TrLogTestsOkSum(BaseFeature):
 class TrLogTestsFailRate(BaseFeature):
     name = "tr_log_tests_fail_rate"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.FLOAT
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -301,6 +314,7 @@ class TrLogTestsFailRate(BaseFeature):
 class TrLogTestDurationSum(BaseFeature):
     name = "tr_log_testduration_sum"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.FLOAT
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -313,6 +327,7 @@ class TrLogTestDurationSum(BaseFeature):
 class TrStatus(BaseFeature):
     name = "tr_status"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.CATEGORY
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -325,6 +340,7 @@ class TrStatus(BaseFeature):
 class TrDuration(BaseFeature):
     name = "tr_duration"
     source = FeatureSource.BUILD_LOG
+    data_type = FeatureDataType.FLOAT
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]

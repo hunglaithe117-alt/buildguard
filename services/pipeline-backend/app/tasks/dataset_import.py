@@ -141,15 +141,33 @@ def process_github_ingestion(
 
 
 def process_csv_ingestion(task: PipelineTask, job: DatasetImportJob) -> Dict[str, Any]:
-    content = job.csv_content
-    if not content:
-        raise ValueError("No CSV content provided")
+    file_path = job.csv_file_path
+    if not file_path:
+        raise ValueError("No CSV file path provided")
 
-    reader = csv.DictReader(io.StringIO(content))
+    # Read from file
+    with open(file_path, "r", encoding="utf-8") as f:
+        # Read content into memory or process line by line.
+        # Since we need to validate headers first, let's read it all or use DictReader directly on file object.
+        # However, DictReader needs a seekable stream or we just iterate.
+        # Let's read into string if it's not too huge, OR just pass the file object to DictReader.
+        # But we need to keep the file open.
+        # Let's read the whole content for now as the original code did, or better, stream it.
+        # Streaming is better.
+        reader = csv.DictReader(f)
+
+        # We need to consume the reader, so we can't close the file yet.
+        # Let's load rows into a list to avoid keeping file open too long if processing takes time?
+        # No, processing might take time (API calls).
+        # Better to load rows into memory if it's "large" but not "huge".
+        # The user said "store file csv into folder... not in db".
+        # Let's assume it fits in memory for the loop, or we process line by line.
+        rows = list(reader)
+        fieldnames = reader.fieldnames
 
     # Validate headers
     required_headers = {"tr_build_id", "gh_project_name", "git_trigger_commit"}
-    if not required_headers.issubset(set(reader.fieldnames or [])):
+    if not required_headers.issubset(set(fieldnames or [])):
         raise ValueError(f"CSV missing required headers: {required_headers}")
 
     builds_imported = 0
@@ -157,7 +175,7 @@ def process_csv_ingestion(task: PipelineTask, job: DatasetImportJob) -> Dict[str
     # Cache clients to avoid recreating
     clients = {}
 
-    for row in reader:
+    for row in rows:
         full_name = row["gh_project_name"]
         run_id_str = row["tr_build_id"]
         commit_sha = row["git_trigger_commit"]

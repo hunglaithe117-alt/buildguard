@@ -23,6 +23,7 @@ from app.services.features.base import (
 )
 from app.services.features.registry import register_feature, register_group
 from app.services.github.github_app import get_installation_token
+from buildguard_common.models.features import FeatureDataType
 from buildguard_common.utils.locking import repo_lock
 
 logger = logging.getLogger(__name__)
@@ -240,7 +241,7 @@ def _get_history_metrics(repo_path: Path, commit_sha: str) -> Tuple[float, int]:
 
 
 def _analyze_snapshot_raw(
-    repo_path: Path, commit_sha: str, language: str | None
+    repo_path: Path, commit_sha: str, language: Optional[str]
 ) -> Dict[str, int]:
     stats = {
         "sloc": 0,
@@ -301,7 +302,7 @@ def _analyze_snapshot_raw(
     return stats
 
 
-def _count_tests(content: str, language: str | None) -> int:
+def _count_tests(content: str, language: Optional[str]) -> int:
     count = 0
     lang = (language or "").lower()
     for line in content.splitlines():
@@ -311,7 +312,7 @@ def _count_tests(content: str, language: str | None) -> int:
     return count
 
 
-def _count_asserts(content: str, language: str | None) -> int:
+def _count_asserts(content: str, language: Optional[str]) -> int:
     count = 0
     lang = (language or "").lower()
     for line in content.splitlines():
@@ -328,6 +329,7 @@ def _count_asserts(content: str, language: str | None) -> int:
 class GhRepoAge(BaseFeature):
     name = "gh_repo_age"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.FLOAT
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -340,6 +342,7 @@ class GhRepoAge(BaseFeature):
 class GhRepoNumCommits(BaseFeature):
     name = "gh_repo_num_commits"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -352,6 +355,7 @@ class GhRepoNumCommits(BaseFeature):
 class GhSloc(BaseFeature):
     name = "gh_sloc"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -364,6 +368,7 @@ class GhSloc(BaseFeature):
 class GhTestLinesPerKloc(BaseFeature):
     name = "gh_test_lines_per_kloc"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.FLOAT
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -376,6 +381,7 @@ class GhTestLinesPerKloc(BaseFeature):
 class GhTestCasesPerKloc(BaseFeature):
     name = "gh_test_cases_per_kloc"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.FLOAT
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -388,6 +394,7 @@ class GhTestCasesPerKloc(BaseFeature):
 class GhAssertsCasePerKloc(BaseFeature):
     name = "gh_asserts_case_per_kloc"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.FLOAT
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -400,6 +407,7 @@ class GhAssertsCasePerKloc(BaseFeature):
 class GhProjectName(BaseFeature):
     name = "gh_project_name"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -412,6 +420,7 @@ class GhProjectName(BaseFeature):
 class GhIsPr(BaseFeature):
     name = "gh_is_pr"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.BOOLEAN
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -424,6 +433,7 @@ class GhIsPr(BaseFeature):
 class GhPrCreatedAt(BaseFeature):
     name = "gh_pr_created_at"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -436,6 +446,7 @@ class GhPrCreatedAt(BaseFeature):
 class GhPullReqNum(BaseFeature):
     name = "gh_pull_req_num"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -448,6 +459,7 @@ class GhPullReqNum(BaseFeature):
 class GhLang(BaseFeature):
     name = "gh_lang"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -460,6 +472,7 @@ class GhLang(BaseFeature):
 class GitBranch(BaseFeature):
     name = "git_branch"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -472,6 +485,7 @@ class GitBranch(BaseFeature):
 class GitTriggerCommit(BaseFeature):
     name = "git_trigger_commit"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -484,6 +498,7 @@ class GitTriggerCommit(BaseFeature):
 class GhBuildStartedAt(BaseFeature):
     name = "gh_build_started_at"
     source = FeatureSource.REPO_SNAPSHOT
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]

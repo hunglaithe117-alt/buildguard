@@ -14,11 +14,6 @@ logger = logging.getLogger(__name__)
 TASK_IMPORT_REPO = "app.tasks.ingestion.import_repo"
 TASK_DOWNLOAD_LOGS = "app.tasks.ingestion.download_job_logs"
 TASK_PROCESS_WORKFLOW = "app.tasks.processing.process_workflow_run"
-TASK_EXTRACT_BUILD_LOG = "app.tasks.processing.extract_build_log_features"
-TASK_EXTRACT_GIT = "app.tasks.processing.extract_git_features"
-TASK_EXTRACT_REPO_SNAPSHOT = "app.tasks.processing.extract_repo_snapshot_features"
-TASK_EXTRACT_DISCUSSION = "app.tasks.processing.extract_github_discussion_features"
-TASK_FINALIZE_SAMPLE = "app.tasks.processing.finalize_build_sample"
 TASK_SUBMIT_SCAN = "app.tasks.submission.submit_scan"
 TASK_RUN_SCAN = "app.tasks.sonar.run_scan_job"
 TASK_EXPORT_METRICS = "app.tasks.sonar.export_metrics"
@@ -61,11 +56,6 @@ __all__ = [
     "TASK_IMPORT_REPO",
     "TASK_DOWNLOAD_LOGS",
     "TASK_PROCESS_WORKFLOW",
-    "TASK_EXTRACT_BUILD_LOG",
-    "TASK_EXTRACT_GIT",
-    "TASK_EXTRACT_REPO_SNAPSHOT",
-    "TASK_EXTRACT_DISCUSSION",
-    "TASK_FINALIZE_SAMPLE",
     "TASK_SUBMIT_SCAN",
     "TASK_RUN_SCAN",
     "TASK_EXPORT_METRICS",

@@ -11,9 +11,8 @@ from app.services.extracts.repo_snapshot_extractor import RepoSnapshotExtractor
 from buildguard_common.models.dataset import (
     TrainingDataset,
     FieldMapping,
-    FeatureSourceType,
 )
-from buildguard_common.models.feature import FeatureDefinition
+from buildguard_common.models.features import Feature, FeatureSourceType
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class ExtractorService:
         row: Dict[str, Any],
         repo: ImportedRepository,
         commit_sha: str,
-        feature_definitions: Dict[str, FeatureDefinition],
+        feature_definitions: Dict[str, Feature],
         workflow_run_id: Optional[int] = None,  # Passed if available
     ) -> Dict[str, Any]:
         """
@@ -72,9 +71,7 @@ class ExtractorService:
             elif source_type == FeatureSourceType.BUILD_LOG:
                 cache_key = f"{source_type}_{repo.id}_{workflow_run_id}"
             elif source_type == FeatureSourceType.GITHUB_API:
-                cache_key = (
-                    f"{source_type}_{repo.id}_{commit_sha}_{workflow_run_id}"
-                )
+                cache_key = f"{source_type}_{repo.id}_{commit_sha}_{workflow_run_id}"
             else:
                 cache_key = f"{source_type}_{repo.id}_{commit_sha}"
 

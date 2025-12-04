@@ -1,10 +1,20 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Path, Query, status, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    Path,
+    Query,
+    status,
+    HTTPException,
+    File,
+    UploadFile,
+    Form,
+)
 from pymongo.database import Database
 
 from app.database.mongo import get_db
-from app.dtos.ingestion import IngestionJobCreateRequest, IngestionJobResponse
+from app.dtos.ingestion import IngestionJobResponse
 from app.middleware.auth import get_current_user
 from app.services.dataset_builder_service import DatasetBuilderService
 
@@ -17,8 +27,13 @@ router = APIRouter(prefix="/dataset-builder", tags=["Dataset Builder"])
     status_code=status.HTTP_201_CREATED,
     response_model_by_alias=False,
 )
-def create_import_job(
-    payload: IngestionJobCreateRequest,
+async def create_import_job(
+    source_type: str = Form(...),
+    repo_url: Optional[str] = Form(None),
+    dataset_template_id: Optional[str] = Form(None),
+    max_builds: int = Form(100),
+    selected_features: Optional[List[str]] = Form(None),
+    csv_file: Optional[UploadFile] = File(None),
     db: Database = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -26,18 +41,28 @@ def create_import_job(
     user_id = str(current_user["_id"])
     service = DatasetBuilderService(db)
 
-    if payload.source_type == "github" and not payload.repo_url:
+    if source_type == "github" and not repo_url:
         raise HTTPException(
             status_code=400, detail="repo_url is required for GitHub ingestion"
         )
 
-    if payload.source_type == "csv" and not payload.csv_content:
-        if not payload.csv_content:
-            raise HTTPException(
-                status_code=400, detail="csv_content is required for CSV ingestion"
-            )
+    if source_type == "csv" and not csv_file:
+        raise HTTPException(
+            status_code=400, detail="csv_file is required for CSV ingestion"
+        )
 
-    return service.create_job(user_id, payload)
+    # Construct payload object or pass args.
+    # We'll modify service.create_job to accept args or we can construct a dict/object.
+    # Let's pass the raw args to the service to handle the file stream.
+    return await service.create_job(
+        user_id=user_id,
+        source_type=source_type,
+        repo_url=repo_url,
+        dataset_template_id=dataset_template_id,
+        max_builds=max_builds,
+        selected_features=selected_features,
+        csv_file=csv_file,
+    )
 
 
 @router.get(

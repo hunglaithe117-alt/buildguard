@@ -2,7 +2,7 @@ from bson import ObjectId
 import pandas as pd
 from app.database.mongo import get_database
 from buildguard_common.models.dataset_template import DatasetTemplate
-from buildguard_common.models.feature import FeatureDefinition, FeatureSourceType
+from buildguard_common.models.features import Feature, FeatureSourceType
 from buildguard_common.models.dataset import FieldMapping, TrainingDataset
 
 
@@ -46,7 +46,7 @@ class DatasetService:
 
         # 4. GỢI Ý MAPPING (Thuật toán chính)
         for feat_data in features:
-            feat = FeatureDefinition(**feat_data)
+            feat = Feature(**feat_data)
 
             mapping = FieldMapping(
                 feature_key=feat.key,

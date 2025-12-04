@@ -107,78 +107,43 @@ def verify_features():
 
     # Test Git Features
     print("\nTesting Git Features:")
-    git_features = registry.get_by_source("git_history")
-    for name in git_features:
-        feature_cls = registry.get(name)
-        if feature_cls:
-            extractor = feature_cls(db)
-            try:
-                # Setup group if needed
-                # In a real executor, we would group by group and call setup
-                # Here we just hack it for verification
-                if name in registry._groups["git_group"].features:
-                    group = registry.get_group("git_group")(db)
-                    if not context.has_cache("repo_path"):
-                        print("Setting up Git Group...")
-                        group.setup(context)
+    from app.services.features.base import FeatureSource
 
-                result = extractor.extract(context, {})
-                print(f"  {name}: {result.value} (Success: {result.success})")
-            except Exception as e:
-                print(f"  {name}: FAILED ({e})")
+    known_values = {}
+
+    git_results = registry.extract_source(
+        FeatureSource.GIT_HISTORY, context, known_values
+    )
+    for name, val in git_results.items():
+        print(f"  {name}: {val} (Success: {val is not None})")
+    known_values.update(git_results)
 
     # Test Build Log Features
     print("\nTesting Build Log Features:")
-    log_features = registry.get_by_source("build_log")
-    for name in log_features:
-        feature_cls = registry.get(name)
-        if feature_cls:
-            extractor = feature_cls(db)
-            try:
-                if name in registry._groups["build_log_group"].features:
-                    group = registry.get_group("build_log_group")(db)
-                    if not context.has_cache("log_files"):
-                        print("Setting up Build Log Group...")
-                        group.setup(context)
-
-                result = extractor.extract(context, {})
-                print(f"  {name}: {result.value} (Success: {result.success})")
-            except Exception as e:
-                print(f"  {name}: FAILED ({e})")
+    log_results = registry.extract_source(
+        FeatureSource.BUILD_LOG, context, known_values
+    )
+    for name, val in log_results.items():
+        print(f"  {name}: {val} (Success: {val is not None})")
+    known_values.update(log_results)
 
     # Test GitHub Discussion Features
     print("\nTesting GitHub Discussion Features:")
-    discussion_features = registry.get_by_source("github_api")
-    for name in discussion_features:
-        feature_cls = registry.get(name)
-        if feature_cls:
-            extractor = feature_cls(db)
-            try:
-                # No specific setup needed for discussion group currently
-                result = extractor.extract(context, {})
-                print(f"  {name}: {result.value} (Success: {result.success})")
-            except Exception as e:
-                print(f"  {name}: FAILED ({e})")
+    discussion_results = registry.extract_source(
+        FeatureSource.GITHUB_API, context, known_values
+    )
+    for name, val in discussion_results.items():
+        print(f"  {name}: {val} (Success: {val is not None})")
+    known_values.update(discussion_results)
 
     # Test Repo Snapshot Features
     print("\nTesting Repo Snapshot Features:")
-    snapshot_features = registry.get_by_source("repo_snapshot")
-    for name in snapshot_features:
-        feature_cls = registry.get(name)
-        if feature_cls:
-            extractor = feature_cls(db)
-            try:
-                if name in registry._groups["repo_snapshot_group"].features:
-                    group = registry.get_group("repo_snapshot_group")(db)
-                    # Reuse repo path if available, or setup will handle it
-                    if not context.has_cache("repo_path"):
-                        print("Setting up Repo Snapshot Group...")
-                        group.setup(context)
-
-                result = extractor.extract(context, {})
-                print(f"  {name}: {result.value} (Success: {result.success})")
-            except Exception as e:
-                print(f"  {name}: FAILED ({e})")
+    snapshot_results = registry.extract_source(
+        FeatureSource.REPO_SNAPSHOT, context, known_values
+    )
+    for name, val in snapshot_results.items():
+        print(f"  {name}: {val} (Success: {val is not None})")
+    known_values.update(snapshot_results)
 
 
 if __name__ == "__main__":

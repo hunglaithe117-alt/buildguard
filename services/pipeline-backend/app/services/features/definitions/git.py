@@ -3,7 +3,7 @@ import shutil
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from git import Commit, Repo
 
@@ -25,6 +25,7 @@ from app.services.features.base import (
 )
 from app.services.features.registry import register_feature, register_group
 from app.services.github.github_app import get_installation_token
+from buildguard_common.models.features import FeatureDataType
 from buildguard_common.utils.locking import repo_lock
 
 logger = logging.getLogger(__name__)
@@ -469,6 +470,7 @@ def _compute_diff_stats(context: ExtractionContext):
 class GitPrevCommitResolutionStatus(BaseFeature):
     name = "git_prev_commit_resolution_status"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -481,6 +483,7 @@ class GitPrevCommitResolutionStatus(BaseFeature):
 class GitPrevBuiltCommit(BaseFeature):
     name = "git_prev_built_commit"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.STRING
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -493,6 +496,7 @@ class GitPrevBuiltCommit(BaseFeature):
 class TrPrevBuild(BaseFeature):
     name = "tr_prev_build"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -505,6 +509,7 @@ class TrPrevBuild(BaseFeature):
 class GitAllBuiltCommits(BaseFeature):
     name = "git_all_built_commits"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.STRING  # List of strings, but simplified for now
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -517,6 +522,7 @@ class GitAllBuiltCommits(BaseFeature):
 class GitNumAllBuiltCommits(BaseFeature):
     name = "git_num_all_built_commits"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -529,6 +535,7 @@ class GitNumAllBuiltCommits(BaseFeature):
 class GhTeamSize(BaseFeature):
     name = "gh_team_size"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -541,6 +548,7 @@ class GhTeamSize(BaseFeature):
 class GhByCoreTeamMember(BaseFeature):
     name = "gh_by_core_team_member"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.BOOLEAN
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -553,6 +561,7 @@ class GhByCoreTeamMember(BaseFeature):
 class GhNumCommitsOnFilesTouched(BaseFeature):
     name = "gh_num_commits_on_files_touched"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -565,6 +574,7 @@ class GhNumCommitsOnFilesTouched(BaseFeature):
 class GitDiffSrcChurn(BaseFeature):
     name = "git_diff_src_churn"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -577,6 +587,7 @@ class GitDiffSrcChurn(BaseFeature):
 class GitDiffTestChurn(BaseFeature):
     name = "git_diff_test_churn"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -589,6 +600,7 @@ class GitDiffTestChurn(BaseFeature):
 class GhDiffFilesAdded(BaseFeature):
     name = "gh_diff_files_added"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -601,6 +613,7 @@ class GhDiffFilesAdded(BaseFeature):
 class GhDiffFilesDeleted(BaseFeature):
     name = "gh_diff_files_deleted"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -613,6 +626,7 @@ class GhDiffFilesDeleted(BaseFeature):
 class GhDiffFilesModified(BaseFeature):
     name = "gh_diff_files_modified"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -625,6 +639,7 @@ class GhDiffFilesModified(BaseFeature):
 class GhDiffTestsAdded(BaseFeature):
     name = "gh_diff_tests_added"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -637,6 +652,7 @@ class GhDiffTestsAdded(BaseFeature):
 class GhDiffTestsDeleted(BaseFeature):
     name = "gh_diff_tests_deleted"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -649,6 +665,7 @@ class GhDiffTestsDeleted(BaseFeature):
 class GhDiffSrcFiles(BaseFeature):
     name = "gh_diff_src_files"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -661,6 +678,7 @@ class GhDiffSrcFiles(BaseFeature):
 class GhDiffDocFiles(BaseFeature):
     name = "gh_diff_doc_files"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -673,6 +691,7 @@ class GhDiffDocFiles(BaseFeature):
 class GhDiffOtherFiles(BaseFeature):
     name = "gh_diff_other_files"
     source = FeatureSource.GIT_HISTORY
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]

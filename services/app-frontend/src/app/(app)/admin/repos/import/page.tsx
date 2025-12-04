@@ -36,7 +36,6 @@ const formSchema = z.object({
     repo_url: z.string().optional(),
     dataset_template_id: z.string().optional(),
     max_builds: z.coerce.number().min(1).max(1000).optional(),
-    csv_content: z.string().optional(),
 });
 
 export default function ImportPage() {
@@ -44,6 +43,7 @@ export default function ImportPage() {
     const { toast } = useToast();
     const [templates, setTemplates] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [csvFile, setCsvFile] = useState<File | null>(null);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -68,19 +68,34 @@ export default function ImportPage() {
                 form.setError("repo_url", { message: "Repository URL is required" });
                 return;
             }
-            if (values.source_type === "csv" && !values.csv_content) {
-                form.setError("csv_content", { message: "CSV Content is required" });
+            if (values.source_type === "csv" && !csvFile) {
+                toast({
+                    title: "Validation Error",
+                    description: "CSV File is required",
+                    variant: "destructive",
+                });
                 return;
             }
 
-            const payload = {
-                ...values,
-                dataset_template_id: values.dataset_template_id || undefined,
-                repo_url: values.source_type === "github" ? values.repo_url : undefined,
-                csv_content: values.source_type === "csv" ? values.csv_content : undefined,
-            };
+            const formData = new FormData();
+            formData.append("source_type", values.source_type);
+            formData.append("max_builds", values.max_builds?.toString() || "100");
 
-            await api.post("/dataset-builder/jobs", payload);
+            if (values.dataset_template_id) {
+                formData.append("dataset_template_id", values.dataset_template_id);
+            }
+
+            if (values.source_type === "github") {
+                formData.append("repo_url", values.repo_url || "");
+            } else if (values.source_type === "csv" && csvFile) {
+                formData.append("csv_file", csvFile);
+            }
+
+            await api.post("/dataset-builder/jobs", formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            });
 
             toast({
                 title: "Import Job Created",
@@ -184,26 +199,22 @@ export default function ImportPage() {
                             )}
 
                             {sourceType === "csv" && (
-                                <FormField
-                                    control={form.control}
-                                    name="csv_content"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>CSV Content</FormLabel>
-                                            <FormControl>
-                                                <Textarea
-                                                    placeholder="Paste your CSV content here..."
-                                                    className="min-h-[200px] font-mono text-xs"
-                                                    {...field}
-                                                />
-                                            </FormControl>
-                                            <FormDescription>
-                                                Must include headers: tr_build_id, gh_project_name, git_trigger_commit
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                <FormItem>
+                                    <FormLabel>CSV File</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="file"
+                                            accept=".csv"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0] || null;
+                                                setCsvFile(file);
+                                            }}
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Upload a CSV file with headers: tr_build_id, gh_project_name, git_trigger_commit
+                                    </FormDescription>
+                                </FormItem>
                             )}
 
                             <FormField

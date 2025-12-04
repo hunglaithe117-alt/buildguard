@@ -15,6 +15,7 @@ from app.services.github.github_client import (
     get_app_github_client,
     get_public_github_client,
 )
+from buildguard_common.models.features import FeatureDataType
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,7 @@ def _compute_discussion_stats(context: ExtractionContext):
 class GhNumCommitComments(BaseFeature):
     name = "gh_num_commit_comments"
     source = FeatureSource.GITHUB_API
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -246,6 +248,7 @@ class GhNumCommitComments(BaseFeature):
 class GhNumPrComments(BaseFeature):
     name = "gh_num_pr_comments"
     source = FeatureSource.GITHUB_API
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -258,6 +261,7 @@ class GhNumPrComments(BaseFeature):
 class GhNumIssueComments(BaseFeature):
     name = "gh_num_issue_comments"
     source = FeatureSource.GITHUB_API
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]
@@ -270,6 +274,7 @@ class GhNumIssueComments(BaseFeature):
 class GhDescriptionComplexity(BaseFeature):
     name = "gh_description_complexity"
     source = FeatureSource.GITHUB_API
+    data_type = FeatureDataType.INTEGER
 
     def extract(
         self, context: ExtractionContext, dependencies: Dict[str, Any]

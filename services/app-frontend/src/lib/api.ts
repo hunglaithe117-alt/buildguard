@@ -366,11 +366,12 @@ export const datasetFeaturesApi = {
   startExtraction: async (
     jobId: string,
     selectedFeatures: string[],
-    extractorConfig: any = {}
+    extractorConfig: any = {},
+    columnMapping: Record<string, string> = {}
   ) => {
     const response = await api.post<{ status: string; message: string }>(
       `/datasets/${jobId}/start-extraction`,
-      { selected_features: selectedFeatures, extractor_config: extractorConfig }
+      { selected_features: selectedFeatures, extractor_config: extractorConfig, column_mapping: columnMapping }
     );
     return response.data;
   },

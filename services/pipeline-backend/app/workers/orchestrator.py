@@ -1,10 +1,6 @@
 import logging
 from typing import Any, Dict
 
-from app.services.extracts.git_feature_extractor import GitHistoryExtractor
-from app.services.extracts.build_log_extractor import BuildLogExtractor
-from app.services.extracts.repo_snapshot_extractor import RepoSnapshotExtractor
-from app.services.extracts.github_discussion_extractor import GitHubApiExtractor
 from app.services.sonar_service import SonarService
 from app.repositories import (
     BuildSampleRepository,
@@ -20,10 +16,6 @@ logger = logging.getLogger(__name__)
 class PipelineOrchestrator:
     def __init__(self, db: Database):
         self.db = db
-        self.git_extractor = GitHistoryExtractor(db)
-        self.log_extractor = BuildLogExtractor(db)
-        self.snapshot_extractor = RepoSnapshotExtractor(db)
-        self.discussion_extractor = GitHubApiExtractor(db)
         self.sonar_service = SonarService(db)
         self.build_sample_repo = BuildSampleRepository(db)
         self.repo_repo = ImportedRepositoryRepository(db)
@@ -48,7 +40,13 @@ class PipelineOrchestrator:
                 logger.warning(
                     "No build_id provided, skipping BuildSample update for now"
                 )
-                build_sample = None
+                # Create a temporary build sample for context if needed, or fail?
+                # The registry needs a BuildSample in context.
+                # If we don't have one, we can't proceed with new system easily.
+                # But legacy code handled build_sample=None in some cases?
+                # Actually legacy code checked `if build_sample:` before extracting.
+                # So if no build_sample, no extraction happened.
+                return
 
             repo = self.repo_repo.find_by_id(repo_id)
             if not repo:
@@ -60,40 +58,56 @@ class PipelineOrchestrator:
                     repo_id, build_sample.workflow_run_id
                 )
 
+            # Initialize Context
+            from app.services.features.base import ExtractionContext, FeatureSource
+            from app.services.features.registry import registry
+
+            context = ExtractionContext(
+                build_sample=build_sample,
+                workflow_run=workflow_run,
+                repo=repo,
+                db=self.db,
+            )
+
+            # Determine selected features if this build is part of a dataset import job
+            selected_features = self._get_selected_features(build_sample)
+
             updates: Dict[str, Any] = {}
 
             # 1) Build log features
-            if build_sample and workflow_run:
+            if workflow_run:
                 logger.info("Extracting build log features...")
-                log_features = self.log_extractor.extract(
-                    build_sample, workflow_run, repo
+                log_features = registry.extract_source(
+                    FeatureSource.BUILD_LOG, context, updates, selected_features
                 )
                 updates.update(log_features)
+                # We don't strictly need to update build_sample object incrementally
+                # if we pass 'updates' dict as known_values.
+                # But for safety/consistency with legacy:
                 build_sample = self._apply_updates(build_sample, log_features)
 
             # 2) Git features (commit lists, churn metrics)
-            if build_sample:
-                logger.info("Extracting Git features...")
-                git_features = self.git_extractor.extract(
-                    build_sample, workflow_run, repo
-                )
-                updates.update(git_features)
-                build_sample = self._apply_updates(build_sample, git_features)
+            logger.info("Extracting Git features...")
+            git_features = registry.extract_source(
+                FeatureSource.GIT_HISTORY, context, updates, selected_features
+            )
+            updates.update(git_features)
+            build_sample = self._apply_updates(build_sample, git_features)
 
             # 3) Repo snapshot features (PR/context metadata)
-            if build_sample and workflow_run:
+            if workflow_run:
                 logger.info("Extracting repository snapshot features...")
-                snapshot_features = self.snapshot_extractor.extract(
-                    build_sample, workflow_run, repo
+                snapshot_features = registry.extract_source(
+                    FeatureSource.REPO_SNAPSHOT, context, updates, selected_features
                 )
                 updates.update(snapshot_features)
                 build_sample = self._apply_updates(build_sample, snapshot_features)
 
             # 4) GitHub discussion features (needs commit/PR info)
-            if build_sample and workflow_run:
+            if workflow_run:
                 logger.info("Extracting GitHub discussion features...")
-                discussion_features = self.discussion_extractor.extract(
-                    build_sample, workflow_run, repo
+                discussion_features = registry.extract_source(
+                    FeatureSource.GITHUB_API, context, updates, selected_features
                 )
                 updates.update(discussion_features)
                 build_sample = self._apply_updates(build_sample, discussion_features)
@@ -138,7 +152,50 @@ class PipelineOrchestrator:
                 )
             raise
 
-    def _apply_updates(self, sample: BuildSample, updates: Dict[str, Any]) -> BuildSample:
+    def _get_selected_features(self, build_sample: BuildSample) -> List[str] | None:
+        if not build_sample.dataset_import_job_id:
+            return None
+
+        job_doc = self.db["dataset_import_jobs"].find_one(
+            {"_id": build_sample.dataset_import_job_id}
+        )
+        if not job_doc:
+            return None
+
+        selected = job_doc.get("selected_features")
+        if not selected:
+            return None
+
+        # Already stored as keys
+        if all(isinstance(f, str) for f in selected):
+            return selected
+
+        from bson import ObjectId
+        from bson.errors import InvalidId
+
+        # Convert stored ObjectIds (or strings) back to feature keys
+        feature_ids: List[ObjectId] = []
+        for item in selected:
+            if isinstance(item, ObjectId):
+                feature_ids.append(item)
+            elif isinstance(item, str):
+                try:
+                    feature_ids.append(ObjectId(item))
+                except (InvalidId, TypeError):
+                    continue
+
+        if not feature_ids:
+            return None
+
+        cursor = self.db["feature_definitions"].find(
+            {"_id": {"$in": feature_ids}}, {"key": 1}
+        )
+        keys = [doc["key"] for doc in cursor]
+        return keys or None
+
+    def _apply_updates(
+        self, sample: BuildSample, updates: Dict[str, Any]
+    ) -> BuildSample:
         for key, value in updates.items():
             try:
                 setattr(sample, key, value)

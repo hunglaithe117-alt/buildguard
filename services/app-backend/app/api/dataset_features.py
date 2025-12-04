@@ -15,6 +15,7 @@ router = APIRouter(prefix="/datasets", tags=["Dataset Features"])
 class StartExtractionRequest(BaseModel):
     selected_features: List[str]
     extractor_config: Dict[str, Any] = {}
+    column_mapping: Dict[str, str] = {}
 
 
 def get_service(db: Database = Depends(get_db)) -> DatasetBuilderService:

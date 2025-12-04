@@ -17,7 +17,7 @@ from .imported_repository import (
 )
 from .sonar_config import SonarConfig
 from .user import User
-from .feature import FeatureDefinition, FeatureDataType, FeatureSourceType
+from .features import Feature, FeatureDataType, FeatureSourceType
 from .dataset_template import DatasetTemplate
 from .dataset import TrainingDataset, DatasetStatus, FieldMapping
 from .dataset_import_job import DatasetImportJob, IngestionSourceType, IngestionStatus
@@ -43,7 +43,7 @@ __all__ = [
     "ScanJobStatus",
     "FailedScan",
     "ScanStatus",
-    "FeatureDefinition",
+    "Feature",
     "FeatureDataType",
     "FeatureSourceType",
     "DatasetTemplate",

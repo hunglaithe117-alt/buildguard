@@ -2,7 +2,7 @@ from enum import Enum
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
 from .base import BaseEntity
-from .feature import FeatureSourceType
+from .features import FeatureSourceType
 
 
 class DatasetStatus(str, Enum):

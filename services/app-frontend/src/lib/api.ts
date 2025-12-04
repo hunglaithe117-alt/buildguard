@@ -358,6 +358,35 @@ export const usersApi = {
   },
 };
 
+
+export const datasetsApi = {
+  listTemplates: async () => {
+    const response = await api.get<any[]>("/datasets/templates/all");
+    return response.data;
+  },
+  uploadCsvPreview: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<{
+      headers: string[];
+      sample_rows: any[];
+      total_rows_estimate: number;
+    }>("/datasets/preview-csv", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+  createDataset: async (payload: any) => {
+    const response = await api.post<{ id: string; message: string }>(
+      "/datasets",
+      payload
+    );
+    return response.data;
+  },
+};
+
 export const datasetFeaturesApi = {
   getFeatures: async (jobId: string) => {
     const response = await api.get<any[]>(`/datasets/${jobId}/features`);
@@ -376,3 +405,4 @@ export const datasetFeaturesApi = {
     return response.data;
   },
 };
+

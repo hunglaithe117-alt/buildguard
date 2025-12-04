@@ -43,60 +43,63 @@ def seed_features():
     db_name = os.getenv("MONGODB_DB_NAME", "buildguard")
     logger.info(f"Seeding into database: {db_name}")
     db = client[db_name]
-    collection = db["features"]
+    feature_collection = db["features"]
+    template_collection = db["dataset_templates"]
 
     logger.info("Fetching features from registry...")
     registered_features = registry.list_features()
 
+    key_to_id_map = {}
     operations = []
+
+    # 1. Seed Features
     for feat_dict in registered_features:
-        # Convert registry dict to Feature model
-        # registry.list_features returns dicts with: name, source, dependencies, description, group(optional)
-
-        # Note: In registry, 'name' is the key (e.g. 'git_prev_commit_resolution_status')
-        # We want to use this as 'key'.
-        # For 'name' (display name), we'll generate a title case version if not available,
-        # or we might need to update registry to support display names.
-        # For now, let's use the key as the name but title-cased.
-
         key = feat_dict["name"]
         display_name = key.replace("_", " ").title()
-
-        # Map source
         source_enum = map_source_type(feat_dict["source"])
 
         feature_model = Feature(
             key=key,
             name=display_name,
             description=feat_dict.get("description") or f"Feature {display_name}",
-            data_type=feat_dict.get(
-                "data_type", "string"
-            ),  # Registry list_features doesn't return data_type currently!
+            data_type=feat_dict.get("data_type", "string"),
             default_source=source_enum,
             dependencies=feat_dict.get("dependencies", []),
             is_active=True,
         )
 
-        # We need to get data_type from the class itself because list_features doesn't include it
         feature_cls = registry.get(key)
         if feature_cls:
             feature_model.data_type = feature_cls.data_type
 
-        # Prepare upsert
-        operations.append(
-            UpdateOne(
-                {"key": key}, {"$set": feature_model.dict(exclude={"id"})}, upsert=True
-            )
+        # Upsert feature
+        feature_collection.update_one(
+            {"key": key}, {"$set": feature_model.dict(exclude={"id"})}, upsert=True
         )
 
-    if operations:
-        logger.info(f"Upserting {len(operations)} features...")
-        result = collection.bulk_write(operations)
-        logger.info(
-            f"Seeding complete. Matched: {result.matched_count}, Modified: {result.modified_count}, Upserted: {result.upserted_count}"
-        )
-    else:
-        logger.info("No features found to seed.")
+        # Retrieve the ID
+        saved_feat = feature_collection.find_one({"key": key}, {"_id": 1})
+        if saved_feat:
+            key_to_id_map[key] = saved_feat["_id"]
+
+    logger.info(f"Synced {len(key_to_id_map)} features.")
+
+    # 2. Seed TravisTorrent Template with IDs
+    template_name = "TravisTorrent"
+    feature_ids = list(key_to_id_map.values())
+
+    template_data = {
+        "name": template_name,
+        "description": "Standard TravisTorrent dataset template.",
+        "feature_ids": feature_ids,
+        "default_mapping": {},  # Can be populated if we have default CSV columns
+    }
+
+    template_collection.update_one(
+        {"name": template_name}, {"$set": template_data}, upsert=True
+    )
+    logger.info(f"Seeded template '{template_name}' with {len(feature_ids)} features.")
+    logger.info("Seeding complete.")
 
 
 if __name__ == "__main__":

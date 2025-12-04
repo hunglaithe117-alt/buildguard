@@ -11,95 +11,78 @@ class DatasetService:
         self.db = db
         self.ds_coll = self.db.training_datasets
         self.tpl_coll = self.db.dataset_templates
-        self.feat_coll = self.db.feature_definitions
+        self.feat_coll = self.db.features
 
     async def get_all_templates(self):
-        """Lấy danh sách các mẫu dataset có sẵn"""
+        """Get list of available dataset templates."""
         cursor = self.tpl_coll.find()
-        return [DatasetTemplate(**doc) for doc in cursor]
+        templates = []
+        for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            doc["feature_ids"] = [str(fid) for fid in doc.get("feature_ids", [])]
+            templates.append(doc)
+        return templates
 
     async def get_dataset(self, dataset_id: str):
         return self.ds_coll.find_one({"_id": ObjectId(dataset_id)})
 
-    async def analyze_csv_mapping(self, file_path: str, template_id: str):
+    async def preview_csv_upload(self, file) -> dict:
         """
-        Core Logic: Đọc CSV và gợi ý mapping dựa trên Template đã chọn.
+        Read first few lines of CSV to return preview.
         """
-        # 1. Lấy thông tin Template
-        template_data = self.tpl_coll.find_one({"_id": ObjectId(template_id)})
-        if not template_data:
-            raise ValueError("Template not found")
-        template = DatasetTemplate(**template_data)
-
-        # 2. Đọc Headers của CSV
         try:
-            df = pd.read_csv(file_path, nrows=5)
-            csv_columns = df.columns.tolist()
-        except Exception:
-            raise ValueError("Cannot read CSV file")
+            # Read chunk to avoid loading large files into memory
+            # We assume utf-8 encoding for now
+            df = pd.read_csv(file.file, nrows=5)
 
-        # 3. Lấy định nghĩa chi tiết các Features có trong Template
-        features_cursor = self.feat_coll.find({"key": {"$in": template.feature_keys}})
-        features = [doc for doc in features_cursor]
+            # Reset file pointer if we were to save it, but here we just preview
+            # file.file.seek(0)
 
-        suggestions = []
+            headers = df.columns.tolist()
+            sample_rows = df.to_dict(orient="records")
 
-        # 4. GỢI Ý MAPPING (Thuật toán chính)
-        for feat_data in features:
-            feat = Feature(**feat_data)
+            return {
+                "headers": headers,
+                "sample_rows": sample_rows,
+                "total_rows_estimate": 0,  # TODO: Estimate if needed, or just return 0
+            }
+        except Exception as e:
+            raise ValueError(f"Invalid CSV file: {str(e)}")
 
-            mapping = FieldMapping(
-                feature_key=feat.key,
-                source_type=feat.default_source,  # Mặc định lấy theo config của Feature
-            )
-
-            # Kiểm tra xem Template có gợi ý tên cột CSV không?
-            suggested_csv_col = template.default_mapping.get(feat.key)
-
-            if suggested_csv_col and suggested_csv_col in csv_columns:
-                # Case 1: Tìm thấy cột CSV đúng tên gợi ý (Perfect Match)
-                mapping.source_type = FeatureSourceType.MANUAL_UPLOAD
-                mapping.csv_column = suggested_csv_col
-
-            elif feat.key in csv_columns:
-                # Case 2: Tên feature trùng tên cột CSV (Name Match)
-                mapping.source_type = FeatureSourceType.MANUAL_UPLOAD
-                mapping.csv_column = feat.key
-
-            else:
-                # Case 3: Không tìm thấy trong CSV -> Đề xuất hệ thống tự tính (Extract)
-                # Giữ nguyên source_type mặc định (VD: GIT_HISTORY)
+    async def create_dataset(self, payload) -> ObjectId:
+        """
+        Create a new TrainingDataset record.
+        """
+        # Validate mandatory mapping if CSV upload
+        if payload.source_type == "csv_upload":
+            if not payload.config.file_path:
+                # In a real flow, file should be uploaded first to a staging area,
+                # and file_path provided here. Or we handle upload in this request (multipart).
+                # For simplicity, we assume file_path is passed (e.g. from a previous upload step)
+                # OR we might need to change the flow to upload file separately.
+                # Let's assume the frontend uploads file to /upload endpoint first, gets a path/ID, then calls this.
                 pass
 
-            suggestions.append(
-                {
-                    "feature": feat.model_dump(),
-                    "mapping_suggestion": mapping.model_dump(),
-                }
-            )
+            mapping = payload.config.mandatory_mapping
+            if not mapping:
+                raise ValueError("Mandatory mapping is required for CSV upload")
 
-        # 5. Gợi ý cột Identity (Repo & Commit)
-        # Tìm cột có tên chứa 'repo', 'project', 'slug'...
-        repo_col = next(
-            (
-                col
-                for col in csv_columns
-                if any(x in col.lower() for x in ["repo", "project", "slug"])
-            ),
-            None,
-        )
-        commit_col = next(
-            (
-                col
-                for col in csv_columns
-                if any(x in col.lower() for x in ["commit", "sha", "hash"])
-            ),
-            None,
+            required_keys = ["tr_build_id", "gh_project_name", "git_trigger_commit"]
+            for key in required_keys:
+                if key not in mapping:
+                    raise ValueError(f"Missing mandatory mapping for: {key}")
+
+        # Convert template_id to ObjectId if present
+        tpl_id = ObjectId(payload.template_id) if payload.template_id else None
+
+        dataset = TrainingDataset(
+            name=payload.name,
+            description=payload.description,
+            source_type=payload.source_type,
+            config=payload.config,
+            template_id=tpl_id,
+            mappings=[],  # Mappings will be populated in a separate step or we can accept them here
         )
 
-        return {
-            "csv_headers": csv_columns,
-            "repo_column_suggestion": repo_col,
-            "commit_column_suggestion": commit_col,
-            "feature_mappings": suggestions,
-        }
+        result = self.ds_coll.insert_one(dataset.to_mongo())
+        return result.inserted_id

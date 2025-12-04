@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 
 from bson import ObjectId
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer, WithJsonSchema
 
 
 def validate_object_id(v: Any) -> Optional[ObjectId]:
@@ -32,7 +32,12 @@ def validate_object_id_str(v: Any) -> Optional[str]:
 
 
 # PyObjectId for entities - converts str to ObjectId (for DB)
-PyObjectId = Annotated[ObjectId, BeforeValidator(validate_object_id)]
+PyObjectId = Annotated[
+    ObjectId,
+    BeforeValidator(validate_object_id),
+    PlainSerializer(lambda x: str(x), return_type=str),
+    WithJsonSchema({"type": "string"}, mode="serialization"),
+]
 
 # PyObjectIdStr for DTOs - converts ObjectId to str (for JSON)
 PyObjectIdStr = Annotated[str, BeforeValidator(validate_object_id_str)]
@@ -48,6 +53,7 @@ class BaseEntity(BaseModel):
     class Config:
         populate_by_name = True
         arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
 
     def to_mongo(self):
         """Convert to MongoDB document"""

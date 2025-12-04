@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .base import BaseEntity, PyObjectId
 
@@ -10,7 +10,7 @@ class WorkflowRunRaw(BaseEntity):
     head_sha: str
     run_number: int
     status: str
-    conclusion: str | None = None
+    conclusion: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     raw_payload: Dict[str, Any]

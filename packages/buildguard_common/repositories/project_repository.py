@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from bson import ObjectId
 from pymongo import ReturnDocument
@@ -18,8 +18,8 @@ class ProjectRepository(MongoRepositoryBase):
         *,
         full_name: str,
         project_key: str,
-        total_builds: int | str,
-        total_commits: int | str,
+        total_builds: Union[int, str],
+        total_commits: Union[int, str],
         source_filename: Optional[str] = None,
         source_path: Optional[str] = None,
         sonar_config: Optional[Dict[str, Any]] = None,

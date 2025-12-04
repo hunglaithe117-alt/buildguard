@@ -1,6 +1,6 @@
 """Repository for workflow runs (infra layer)."""
 
-from typing import Optional
+from typing import Optional, Union
 
 from bson import ObjectId
 
@@ -13,7 +13,7 @@ class WorkflowRunRepository(BaseRepository[WorkflowRunRaw]):
         super().__init__(db, CollectionName.WORKFLOW_RUNS, WorkflowRunRaw)
 
     def find_by_repo_and_run_id(
-        self, repo_id: str | ObjectId, workflow_run_id: int
+        self, repo_id: Union[str, ObjectId], workflow_run_id: int
     ) -> Optional[WorkflowRunRaw]:
         return self.find_one(
             {"repo_id": self._to_object_id(repo_id), "run_id": workflow_run_id}

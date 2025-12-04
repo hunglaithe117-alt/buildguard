@@ -1,7 +1,7 @@
 """Repository for available repositories (infra layer)."""
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from bson import ObjectId
 
@@ -15,7 +15,7 @@ class AvailableRepositoryRepository(BaseRepository[AvailableRepository]):
         self.collection.create_index([("user_id", 1), ("full_name", 1)], unique=True)
 
     def list_by_user(
-        self, user_id: str | ObjectId, filters: Optional[Dict[str, Any]] = None
+        self, user_id: Union[str, ObjectId], filters: Optional[Dict[str, Any]] = None
     ) -> List[AvailableRepository]:
         query = {"user_id": self._to_object_id(user_id)}
         if filters:
@@ -24,7 +24,7 @@ class AvailableRepositoryRepository(BaseRepository[AvailableRepository]):
 
     def upsert_available_repo(
         self,
-        user_id: str | ObjectId,
+        user_id: Union[str, ObjectId],
         repo_data: Dict[str, Any],
         installation_id: Optional[str] = None,
     ) -> AvailableRepository:
@@ -48,11 +48,11 @@ class AvailableRepositoryRepository(BaseRepository[AvailableRepository]):
         self.collection.update_one(filter_query, {"$set": update_doc}, upsert=True)
         return self.find_one(filter_query)
 
-    def delete_by_user(self, user_id: str | ObjectId):
+    def delete_by_user(self, user_id: Union[str, ObjectId]):
         self.collection.delete_many({"user_id": self._to_object_id(user_id)})
 
     def discover_available_repositories(
-        self, user_id: str | ObjectId, q: Optional[str] = None, limit: int = 50
+        self, user_id: Union[str, ObjectId], q: Optional[str] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
         filters = {
             "user_id": self._to_object_id(user_id),

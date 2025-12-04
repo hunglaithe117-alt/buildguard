@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Union
 
 from pydantic import Field
 
@@ -12,7 +12,7 @@ class ScanResult(BaseEntity):
     repo_id: PyObjectId = Field(...)
     job_id: PyObjectId = Field(...)  # Reference to ScanJob
     sonar_project_key: str = Field(...)
-    metrics: Dict[str, float | int | str] = Field(default_factory=dict)
+    metrics: Dict[str, Union[float, int, str]] = Field(default_factory=dict)
 
     class Config:
         json_encoders = {datetime: lambda dt: dt.isoformat()}

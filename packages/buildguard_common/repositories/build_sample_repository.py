@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from bson import ObjectId
 
@@ -15,7 +15,7 @@ class BuildSampleRepository(BaseRepository[BuildSample]):
         super().__init__(db, CollectionName.BUILD_SAMPLES, BuildSample)
 
     def find_by_repo_and_run_id(
-        self, repo_id: str | ObjectId, workflow_run_id: int
+        self, repo_id: Union[str, ObjectId], workflow_run_id: int
     ) -> Optional[BuildSample]:
         return self.find_one(
             {"repo_id": self._to_object_id(repo_id), "workflow_run_id": workflow_run_id}

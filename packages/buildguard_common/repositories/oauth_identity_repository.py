@@ -1,6 +1,6 @@
 """Repository for OAuth identities (infra layer)."""
 
-from typing import Optional
+from typing import Optional, Union
 
 from bson import ObjectId
 
@@ -14,13 +14,13 @@ class OAuthIdentityRepository(BaseRepository[OAuthIdentity]):
         super().__init__(db, CollectionName.OAUTH_IDENTITIES, OAuthIdentity)
 
     def find_by_user_and_provider(
-        self, user_id: str | ObjectId, provider: str
+        self, user_id: Union[str, ObjectId], provider: str
     ) -> Optional[OAuthIdentity]:
         return self.find_one(
             {"user_id": self._to_object_id(user_id), "provider": provider}
         )
 
-    def find_by_user(self, user_id: str | ObjectId) -> Optional[OAuthIdentity]:
+    def find_by_user(self, user_id: Union[str, ObjectId]) -> Optional[OAuthIdentity]:
         return self.find_one({"user_id": self._to_object_id(user_id)})
 
     def get_user_identity(

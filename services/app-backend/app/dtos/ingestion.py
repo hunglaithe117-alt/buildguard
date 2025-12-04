@@ -9,6 +9,7 @@ class IngestionJobCreateRequest(BaseModel):
     repo_url: Optional[str] = None
     dataset_template_id: Optional[str] = None
     max_builds: Optional[int] = Field(default=100, ge=1, le=1000)
+    selected_features: Optional[list[str]] = None
     # For CSV, we might handle file upload separately, but if it's small content:
     csv_content: Optional[str] = None
 

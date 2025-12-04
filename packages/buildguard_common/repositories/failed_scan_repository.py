@@ -1,7 +1,7 @@
 """Repository for failed scans (infra layer)."""
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from bson import ObjectId
 
@@ -13,12 +13,12 @@ class FailedScanRepository(BaseRepository[FailedScan]):
     def __init__(self, db):
         super().__init__(db, CollectionName.FAILED_SCANS, FailedScan)
 
-    def get_by_job_id(self, job_id: str | ObjectId) -> Optional[FailedScan]:
+    def get_by_job_id(self, job_id: Union[str, ObjectId]) -> Optional[FailedScan]:
         return self.find_one({"job_id": self._to_object_id(job_id)})
 
     def list_by_repo(
         self,
-        repo_id: str | ObjectId,
+        repo_id: Union[str, ObjectId],
         status: ScanStatus,
         skip: int = 0,
         limit: int = 20,
@@ -30,13 +30,13 @@ class FailedScanRepository(BaseRepository[FailedScan]):
             limit=limit,
         )
 
-    def count_pending_by_repo(self, repo_id: str | ObjectId) -> int:
+    def count_pending_by_repo(self, repo_id: Union[str, ObjectId]) -> int:
         return self.collection.count_documents(
             {"repo_id": self._to_object_id(repo_id), "status": ScanStatus.PENDING}
         )
 
     def update(
-        self, failed_scan_id: str | ObjectId, data: dict
+        self, failed_scan_id: Union[str, ObjectId], data: dict
     ) -> Optional[FailedScan]:
         data["updated_at"] = datetime.now(timezone.utc)
         return super().update(failed_scan_id, data)

@@ -38,6 +38,7 @@ class DatasetBuilderService:
             dataset_template_id=template_id,
             max_builds=payload.max_builds,
             csv_content=payload.csv_content,
+            selected_features=payload.selected_features,
             created_at=datetime.utcnow(),
         )
 
@@ -154,8 +155,53 @@ class DatasetBuilderService:
         # However, for simplicity/MVP, we might just trigger a task that iterates
         # over builds and queues extraction.
 
-        celery_app.send_task(
-            "pipeline.tasks.dataset_import.trigger_extraction_for_job",
-            args=[job_id],
             queue="ingestion",
         )
+
+    def list_available_features(self) -> List[Dict[str, Any]]:
+        """
+        List all available features.
+        
+        Note: Ideally this should come from the registry in pipeline-backend.
+        For now, we return the list of features we just refactored.
+        """
+        # This list mirrors the registry in pipeline-backend
+        features = [
+            # Git Features
+            {"name": "git_prev_commit_resolution_status", "source": "git_history", "description": "Status of the previous commit"},
+            {"name": "git_prev_built_commit", "source": "git_history", "description": "SHA of the previous built commit"},
+            {"name": "tr_prev_build", "source": "git_history", "description": "ID of the previous build"},
+            {"name": "git_all_built_commits", "source": "git_history", "description": "List of all built commits"},
+            {"name": "git_num_all_built_commits", "source": "git_history", "description": "Number of built commits"},
+            {"name": "gh_team_size", "source": "git_history", "description": "Size of the core team"},
+            {"name": "gh_by_core_team_member", "source": "git_history", "description": "Whether the commit is by a core team member"},
+            {"name": "gh_num_commits_on_files_touched", "source": "git_history", "description": "Number of commits on touched files"},
+            {"name": "git_diff_src_churn", "source": "git_history", "description": "Source code churn"},
+            {"name": "git_diff_test_churn", "source": "git_history", "description": "Test code churn"},
+            {"name": "gh_diff_files_added", "source": "git_history", "description": "Number of files added"},
+            {"name": "gh_diff_files_deleted", "source": "git_history", "description": "Number of files deleted"},
+            {"name": "gh_diff_files_modified", "source": "git_history", "description": "Number of files modified"},
+            {"name": "gh_diff_tests_added", "source": "git_history", "description": "Number of tests added"},
+            {"name": "gh_diff_tests_deleted", "source": "git_history", "description": "Number of tests deleted"},
+            {"name": "gh_diff_src_files", "source": "git_history", "description": "Number of source files changed"},
+            {"name": "gh_diff_doc_files", "source": "git_history", "description": "Number of doc files changed"},
+            {"name": "gh_diff_other_files", "source": "git_history", "description": "Number of other files changed"},
+            
+            # Build Log Features
+            {"name": "tr_jobs", "source": "build_log", "description": "List of job IDs"},
+            {"name": "tr_build_id", "source": "build_log", "description": "Build ID"},
+            {"name": "tr_build_number", "source": "build_log", "description": "Build Number"},
+            {"name": "tr_original_commit", "source": "build_log", "description": "Original Commit SHA"},
+            {"name": "tr_log_lan_all", "source": "build_log", "description": "Languages detected"},
+            {"name": "tr_log_frameworks_all", "source": "build_log", "description": "Frameworks detected"},
+            {"name": "tr_log_num_jobs", "source": "build_log", "description": "Number of jobs"},
+            {"name": "tr_log_tests_run_sum", "source": "build_log", "description": "Total tests run"},
+            {"name": "tr_log_tests_failed_sum", "source": "build_log", "description": "Total tests failed"},
+            {"name": "tr_log_tests_skipped_sum", "source": "build_log", "description": "Total tests skipped"},
+            {"name": "tr_log_tests_ok_sum", "source": "build_log", "description": "Total tests passed"},
+            {"name": "tr_log_tests_fail_rate", "source": "build_log", "description": "Test failure rate"},
+            {"name": "tr_log_testduration_sum", "source": "build_log", "description": "Total test duration"},
+            {"name": "tr_status", "source": "build_log", "description": "Build status"},
+            {"name": "tr_duration", "source": "build_log", "description": "Build duration"},
+        ]
+        return features

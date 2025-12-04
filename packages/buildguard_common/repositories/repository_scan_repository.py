@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from bson import ObjectId
 from pymongo import ReturnDocument
@@ -20,7 +20,7 @@ class RepositoryScanRepository(BaseRepository[RepositoryScan]):
     def create_scan(
         self,
         *,
-        project_id: str | ObjectId,
+        project_id: Union[str, ObjectId],
         sonar_project_key: str,
         total_commits: int = 0,
         sonar_config: Optional[str] = None,
@@ -36,14 +36,16 @@ class RepositoryScanRepository(BaseRepository[RepositoryScan]):
         )
         return self.insert_one(scan)
 
-    def get_by_project_id(self, project_id: str | ObjectId) -> Optional[RepositoryScan]:
+    def get_by_project_id(
+        self, project_id: Union[str, ObjectId]
+    ) -> Optional[RepositoryScan]:
         return self.find_one({"project_id": self._to_object_id(project_id)})
 
     def update_scan(
         self,
-        scan_id: str | ObjectId,
+        scan_id: Union[str, ObjectId],
         *,
-        status: Optional[ScanCollectionStatus | str] = None,
+        status: Optional[Union[ScanCollectionStatus, str]] = None,
         processed_delta: int = 0,
         failed_delta: int = 0,
         last_error: Optional[str] = None,

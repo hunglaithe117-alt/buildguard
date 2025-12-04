@@ -73,3 +73,16 @@ def get_import_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+
+@router.get(
+    "/features",
+    response_model=List[dict],
+)
+def list_available_features(
+    db: Database = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """List all available features for custom dataset creation."""
+    service = DatasetBuilderService(db)
+    return service.list_available_features()

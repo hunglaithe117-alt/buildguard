@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from typing import Generator
 
 import redis
-from buildguard_common.redis import get_redis
+from buildguard_common.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 

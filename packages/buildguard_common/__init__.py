@@ -1,6 +1,6 @@
 """Shared utilities for BuildGuard services."""
 
-from .logging import OTelJSONFormatter, setup_logging
+from .logger import OTelJSONFormatter, setup_logging
 from .mongo import get_client, get_database, yield_database
 from .tasks import MongoTask
 from .github_exceptions import (

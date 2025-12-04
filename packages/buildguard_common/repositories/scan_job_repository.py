@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from bson import ObjectId
 from pymongo import ReturnDocument
@@ -16,15 +16,17 @@ class ScanJobRepository(BaseRepository[ScanJob]):
     def __init__(self, db):
         super().__init__(db, CollectionName.SCAN_JOBS, ScanJob)
 
-    def get(self, job_id: str | ObjectId) -> Optional[ScanJob]:
+    def get(self, job_id: Union[str, ObjectId]) -> Optional[ScanJob]:
         return self.find_by_id(job_id)
 
-    def update(self, job_id: str | ObjectId, data: Dict[str, Any]) -> Optional[ScanJob]:
+    def update(
+        self, job_id: Union[str, ObjectId], data: Dict[str, Any]
+    ) -> Optional[ScanJob]:
         data["updated_at"] = datetime.now(timezone.utc)
         return super().update(job_id, data)
 
     def list_by_repo(
-        self, repo_id: str | ObjectId, skip: int = 0, limit: int = 20
+        self, repo_id: Union[str, ObjectId], skip: int = 0, limit: int = 20
     ) -> List[ScanJob]:
         return self.find_many(
             {"repo_id": self._to_object_id(repo_id)},
@@ -33,7 +35,7 @@ class ScanJobRepository(BaseRepository[ScanJob]):
             limit=limit,
         )
 
-    def count_by_repo(self, repo_id: str | ObjectId) -> int:
+    def count_by_repo(self, repo_id: Union[str, ObjectId]) -> int:
         return self.collection.count_documents({"repo_id": self._to_object_id(repo_id)})
 
     # Methods from pipeline-backend
@@ -42,13 +44,13 @@ class ScanJobRepository(BaseRepository[ScanJob]):
         *,
         project_id: str,
         commit_sha: str,
-        repository_url: str | None = None,
-        repo_slug: str | None = None,
-        project_key: str | None = None,
-        component_key: str | None = None,
-        sonar_instance: str | None = None,
+        repository_url: Optional[str] = None,
+        repo_slug: Optional[str] = None,
+        project_key: Optional[str] = None,
+        component_key: Optional[str] = None,
+        sonar_instance: Optional[str] = None,
         max_retries: int = 3,
-        external_job_id: str | None = None,
+        external_job_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         now = datetime.utcnow()
         payload = {

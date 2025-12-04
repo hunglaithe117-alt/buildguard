@@ -5,7 +5,7 @@ from bson import ObjectId
 from pydantic import BaseModel, BeforeValidator, Field
 
 
-def validate_object_id(v: Any) -> ObjectId | None:
+def validate_object_id(v: Any) -> Optional[ObjectId]:
     """Validate and convert to ObjectId for entity models."""
     if v is None:
         return None
@@ -18,7 +18,7 @@ def validate_object_id(v: Any) -> ObjectId | None:
     raise ValueError(f"Invalid ObjectId: {v}")
 
 
-def validate_object_id_str(v: Any) -> str | None:
+def validate_object_id_str(v: Any) -> Optional[str]:
     """Validate and convert to string for DTOs."""
     if v is None:
         return None

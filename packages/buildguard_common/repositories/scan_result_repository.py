@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from bson import ObjectId
 from pymongo import ReturnDocument
@@ -15,13 +15,13 @@ class ScanResultRepository(BaseRepository[ScanResult]):
     def __init__(self, db):
         super().__init__(db, CollectionName.SCAN_RESULTS, ScanResult)
 
-    def upsert_by_job(self, job_id: str | ObjectId, data: Dict) -> ScanResult:
+    def upsert_by_job(self, job_id: Union[str, ObjectId], data: Dict) -> ScanResult:
         filter_query = {"job_id": self._to_object_id(job_id)}
         self.collection.update_one(filter_query, {"$set": data}, upsert=True)
         return self.find_one(filter_query)
 
     def list_by_repo(
-        self, repo_id: str | ObjectId, skip: int = 0, limit: int = 20
+        self, repo_id: Union[str, ObjectId], skip: int = 0, limit: int = 20
     ) -> List[ScanResult]:
         return self.find_many(
             {"repo_id": self._to_object_id(repo_id)},
@@ -30,7 +30,7 @@ class ScanResultRepository(BaseRepository[ScanResult]):
             limit=limit,
         )
 
-    def count_by_repo(self, repo_id: str | ObjectId) -> int:
+    def count_by_repo(self, repo_id: Union[str, ObjectId]) -> int:
         return self.collection.count_documents({"repo_id": self._to_object_id(repo_id)})
 
     # Methods from pipeline-backend
